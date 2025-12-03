@@ -1,11 +1,12 @@
 # service/pneumonia_service.py
 import os
-import numpy as np
+
 import cv2
-import tensorflow as tf
-from tensorflow.keras.models import load_model, Model
-from tensorflow.keras.preprocessing import image
 import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.preprocessing import image
 
 
 class DetectorDePneumoniaService:
@@ -20,7 +21,7 @@ class DetectorDePneumoniaService:
         # === ENCONTRA BASE RESNET ===
         self.base_model = None
         for layer in self.model.layers:
-            if isinstance(layer, tf.keras.Model) and 'resnet' in layer.name.lower():
+            if isinstance(layer, tf.keras.Model) and "resnet" in layer.name.lower():
                 self.base_model = layer
                 break
         if not self.base_model:
@@ -46,8 +47,7 @@ class DetectorDePneumoniaService:
 
     def _gradcam_smooth(self, img_array, n_samples=30, noise_level=0.2):
         grad_model = Model(
-            inputs=self.base_model.input,
-            outputs=[self.last_conv.output, self.base_model.output]
+            inputs=self.base_model.input, outputs=[self.last_conv.output, self.base_model.output]
         )
 
         cam_accum = None
@@ -79,7 +79,7 @@ class DetectorDePneumoniaService:
 
         # Destacar apenas o ponto central mais relevante
         cam = cam**2
-        cam /= (cam.max() + 1e-8)
+        cam /= cam.max() + 1e-8
 
         h, w = self.tamanho_img
         cam = cv2.resize(cam, (w, h), interpolation=cv2.INTER_CUBIC)
@@ -101,6 +101,14 @@ class DetectorDePneumoniaService:
         heatmap = cv2.resize(heatmap, (img_bgr.shape[1], img_bgr.shape[0]), cv2.INTER_CUBIC)
         return cv2.addWeighted(img_bgr, 1 - alpha, heatmap, alpha, 0)
 
+    def diagnosticar_imagem(self, caminho_imagem):
+        """Simple diagnosis without visualization - returns (classe, confianca)"""
+        _, arr = self._preprocessar(caminho_imagem)
+        pred = float(self.model.predict(arr, verbose=0)[0][0])
+        classe = "PNEUMONIA" if pred > 0.5 else "NORMAL"
+        confianca = pred if pred > 0.5 else 1 - pred
+        return classe, np.array(confianca)
+
     def diagnosticar_com_explicacao(self, caminho_imagem, pasta_saida="relatorios"):
         nome = os.path.splitext(os.path.basename(caminho_imagem))[0]
         pasta = os.path.join(pasta_saida, nome)
@@ -119,41 +127,53 @@ class DetectorDePneumoniaService:
         overlay = self._overlay(img_bgr, heatmap, alpha=0.7)
 
         def salvar(fig, path):
-            fig.savefig(path, dpi=300, bbox_inches='tight', facecolor='white', pad_inches=0.1)
+            fig.savefig(path, dpi=300, bbox_inches="tight", facecolor="white", pad_inches=0.1)
             plt.close(fig)
 
         # 01 Original
-        fig, ax = plt.subplots(figsize=(6,6))
+        fig, ax = plt.subplots(figsize=(6, 6))
         ax.imshow(img_pil)
-        ax.set_title(f"Original\n{classe} ({confianca:.1%})", fontsize=14, pad=15, weight='bold')
-        ax.axis('off')
+        ax.set_title(f"Original\n{classe} ({confianca:.1%})", fontsize=14, pad=15, weight="bold")
+        ax.axis("off")
         salvar(fig, f"{pasta}/01_original.png")
 
         # 02 Grad-CAM
-        fig, ax = plt.subplots(figsize=(6,6))
-        im = ax.imshow(cam, cmap='hot', vmin=0, vmax=1)
-        ax.set_title("Grad-CAM (Foco Pulmonar)", fontsize=14, pad=15, weight='bold')
-        ax.axis('off')
+        fig, ax = plt.subplots(figsize=(6, 6))
+        im = ax.imshow(cam, cmap="hot", vmin=0, vmax=1)
+        ax.set_title("Grad-CAM (Foco Pulmonar)", fontsize=14, pad=15, weight="bold")
+        ax.axis("off")
         cbar = plt.colorbar(im, fraction=0.046, pad=0.04)
         cbar.set_label("Ativação", rotation=270, labelpad=15)
         salvar(fig, f"{pasta}/02_gradcam.png")
 
         # 03 Overlay
-        fig, ax = plt.subplots(figsize=(6,6))
+        fig, ax = plt.subplots(figsize=(6, 6))
         ax.imshow(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
-        ax.set_title("Regiões de Pneumonia", fontsize=14, pad=15, weight='bold')
-        ax.axis('off')
+        ax.set_title("Regiões de Pneumonia", fontsize=14, pad=15, weight="bold")
+        ax.axis("off")
         salvar(fig, f"{pasta}/03_overlay.png")
 
         # 04 Confiança
-        fig, ax = plt.subplots(figsize=(5,4))
-        bars = ax.bar(['NORMAL', 'PNEUMONIA'], [1-pred, pred], color=['#2ca02c', '#d62728'], edgecolor='black')
+        fig, ax = plt.subplots(figsize=(5, 4))
+        bars = ax.bar(
+            ["NORMAL", "PNEUMONIA"],
+            [1 - pred, pred],
+            color=["#2ca02c", "#d62728"],
+            edgecolor="black",
+        )
         for b in bars:
             h = b.get_height()
-            ax.text(b.get_x() + b.get_width()/2, h + 0.03, f'{h:.1%}', ha='center', fontweight='bold', fontsize=12)
+            ax.text(
+                b.get_x() + b.get_width() / 2,
+                h + 0.03,
+                f"{h:.1%}",
+                ha="center",
+                fontweight="bold",
+                fontsize=12,
+            )
         ax.set_ylim(0, 1)
-        ax.set_title("Confiança", fontsize=14, weight='bold')
-        ax.grid(True, axis='y', alpha=0.3, linestyle='--')
+        ax.set_title("Confiança", fontsize=14, weight="bold")
+        ax.grid(True, axis="y", alpha=0.3, linestyle="--")
         salvar(fig, f"{pasta}/04_confianca.png")
 
         print(f"Relatório salvo: {pasta}/")

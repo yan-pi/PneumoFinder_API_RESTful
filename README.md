@@ -64,35 +64,73 @@ PneumoFinder/
 
 ## ⚙️ Instalação e Configuração
 
+### Pré-requisitos
+- [mise](https://mise.jdx.dev/getting-started.html) - Gerenciador de versões de ferramentas
+  ```bash
+  # macOS/Linux
+  curl https://mise.run | sh
+  
+  # Windows (PowerShell)
+  irm https://mise.run | iex
+  ```
+
+### Instalação
+
 1. Clone este repositório:
    ```bash
    git clone https://github.com/seu-usuario/pneumofinder.git
    cd pneumofinder
    ```
 
-2. Crie um ambiente virtual e instale as dependências:
+2. Configure o ambiente com mise (instala Python 3.11 e cria o virtualenv automaticamente):
    ```bash
-   python -m venv venv
-   source venv/bin/activate   # Linux/Mac
-   venv\Scripts\activate    # Windows
-   pip install -r requirements.txt
+   mise install
    ```
 
-3. Configure as variáveis de ambiente no arquivo `.env`:
+3. Instale as dependências com uv:
+   ```bash
+   mise run install
+   # ou: uv sync
+   ```
+
+4. Configure as variáveis de ambiente no arquivo `.env`:
    ```env
    TWILIO_ACCOUNT_SID=seu_sid
    TWILIO_AUTH_TOKEN=seu_token
    ```
 
-4. Execute a API:
+5. Execute a API:
    ```bash
-   python app.py
+   mise run run
+   # ou: uv run python app.py
    ```
 
-5. Para rodar o webhook do WhatsApp:
+6. Para rodar o webhook do WhatsApp:
    ```bash
-   python chat_bot_service.py
+   mise run bot
+   # ou: uv run python service/chat_bot_service.py
    ```
+
+### Comandos Disponíveis
+
+- `mise run install` - Instala dependências
+- `mise run run` - Executa a API Flask
+- `mise run bot` - Executa o bot do WhatsApp
+- `mise run test-model` - Testa o modelo com imagens de exemplo
+- `mise run lint` - Verifica código com ruff
+- `mise run format` - Formata código com ruff
+
+### Migração do ambiente antigo (opcional)
+
+Se você estava usando `venv` tradicional:
+```bash
+# Remove o ambiente antigo
+rm -rf venv/
+
+# mise + uv cuidam do resto
+mise install
+mise run install
+```
 
 ---
 

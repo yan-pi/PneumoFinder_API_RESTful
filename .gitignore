@@ -1,6 +1,6 @@
 # Ignorar diretórios e arquivos do ambiente virtual
 venv/
-.venv
+.venv/
 .env/
 __pycache__/
 *.pyc
@@ -22,6 +22,7 @@ __pycache__/
 *.sublime-workspace
 *.sublime-project
 .env
+
 # Ignorar arquivos gerados durante a instalação do pacote
 *.egg
 *.egg-info/
@@ -31,3 +32,14 @@ build/
 
 # Ignorar arquivos temporários criados por editores de texto
 *~
+
+# mise/uv artifacts
+.mise.local.toml
+uv.lock
+.python-version
+
+# ruff cache
+.ruff_cache/
+
+# Temporary uploads
+temp/

@@ -1,0 +1,37 @@
+# mise configuration for PneumoFinder API
+# Manages Python version and development tools
+
+[tools]
+python = "3.11"  # TensorFlow 2.19.0 requires Python 3.9-3.12
+"cargo:uv" = "latest"  # Fast Python package installer
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+
+[tasks.install]
+description = "Install dependencies with uv"
+run = "uv sync --extra dev"
+
+[tasks.run]
+description = "Run Flask API on port 5001"
+run = "uv run python app.py"
+
+[tasks.bot]
+description = "Run WhatsApp bot service"
+run = "uv run python service/chat_bot_service.py"
+
+[tasks.test-model]
+description = "Test model with sample images"
+run = "uv run python testar_modelo.py"
+
+[tasks.lint]
+description = "Lint code with ruff"
+run = "uv run ruff check ."
+
+[tasks.format]
+description = "Format code with ruff"
+run = "uv run ruff format ."
+
+[tasks.format-check]
+description = "Check code formatting without modifying"
+run = "uv run ruff format --check ."

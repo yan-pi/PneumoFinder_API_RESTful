@@ -1,7 +1,9 @@
 import os
+
 import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
+
 
 class DetectorDePulmao:
     def __init__(self, caminho_modelo, tamanho_img=(224, 224)):

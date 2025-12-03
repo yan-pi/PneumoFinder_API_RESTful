@@ -1,16 +1,16 @@
 import os
 import time
-import requests
-from requests.auth import HTTPBasicAuth
-from flask import Flask, request
-from twilio.twiml.messaging_response import MessagingResponse
 
-from pneumonia_service import DetectorDePneumonia
+import requests
+from flask import Flask, request
+from pneumonia_service import DetectorDePneumoniaService
 from pulmao_service import DetectorDePulmao
+from requests.auth import HTTPBasicAuth
+from twilio.twiml.messaging_response import MessagingResponse
 
 # Inicializa os detectores com os caminhos dos modelos salvos
 detector_pulmao = DetectorDePulmao("../models/pulmao_model.keras")
-detector_pneumonia = DetectorDePneumonia("../models/pneumonia_model.keras")
+detector_pneumonia = DetectorDePneumoniaService("../models/pneumonia_model.keras")
 
 app = Flask(__name__)
 
@@ -19,6 +19,7 @@ os.makedirs(PASTA_IMAGENS, exist_ok=True)
 
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -53,7 +54,7 @@ def webhook():
         classe_pulmao, confianca_pulmao = detector_pulmao.detectar_imagem(filepath)
 
         if classe_pulmao != "PULMÃO":
-            mensagem = f"⛔ A imagem enviada não parece ser um raio-x de pulmão.\n❌ Confiança: {confianca_pulmao*100:.1f}% "
+            mensagem = f"⛔ A imagem enviada não parece ser um raio-x de pulmão.\n❌ Confiança: {confianca_pulmao * 100:.1f}% "
             resp.message(mensagem)
             os.remove(filepath)
             return str(resp)
@@ -65,12 +66,12 @@ def webhook():
         if classe_pneumonia == "PNEUMONIA":
             mensagem = (
                 f"🆘 A imagem é de um pulmão.\n"
-                f"🚨 **Diagnóstico**: Pneumonia detectada com confiança de {confianca_pneumonia*100:.1f}%."
+                f"🚨 **Diagnóstico**: Pneumonia detectada com confiança de {confianca_pneumonia * 100:.1f}%."
             )
         else:
             mensagem = (
                 f"✅ A imagem é de um pulmão.\n"
-                f"🎉 **Diagnóstico**: Não há sinais de pneumonia. Confiança: {confianca_pneumonia*100:.1f}%."
+                f"🎉 **Diagnóstico**: Não há sinais de pneumonia. Confiança: {confianca_pneumonia * 100:.1f}%."
             )
 
         print(mensagem)
@@ -81,6 +82,7 @@ def webhook():
         resp.message("Tive um erro ao processar a imagem. Tente novamente mais tarde, tá bom?")
 
     return str(resp)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
