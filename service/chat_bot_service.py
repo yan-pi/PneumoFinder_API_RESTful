@@ -3,19 +3,19 @@ import time
 
 import requests
 from flask import Flask, request
-from pneumonia_service import DetectorDePneumoniaService
-from pulmao_service import DetectorDePulmao
+from pneumonia_service import PneumoniaDetectorService
+from pulmao_service import LungDetector
 from requests.auth import HTTPBasicAuth
 from twilio.twiml.messaging_response import MessagingResponse
 
-# Inicializa os detectores com os caminhos dos modelos salvos
-detector_pulmao = DetectorDePulmao("../models/pulmao_model.keras")
-detector_pneumonia = DetectorDePneumoniaService("../models/pneumonia_model.keras")
+# Initialize the detectors with the paths to the saved models
+lung_detector = LungDetector("../models/pulmao_model.keras")
+pneumonia_detector = PneumoniaDetectorService("../models/pneumonia_model.keras")
 
 app = Flask(__name__)
 
-PASTA_IMAGENS = "imgs_pulmoes"
-os.makedirs(PASTA_IMAGENS, exist_ok=True)
+IMAGES_FOLDER = "imgs_pulmoes"
+os.makedirs(IMAGES_FOLDER, exist_ok=True)
 
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
@@ -27,7 +27,7 @@ def webhook():
     num_media = int(request.form.get("NumMedia", 0))
 
     if num_media == 0:
-        resp.message("Oi! Por favor, envie uma imagem de raio-x do pulmão para análise. 🫁")
+        resp.message("Hi! Please send a lung X-ray image for analysis. 🫁")
         return str(resp)
 
     media_url = request.form.get("MediaUrl0")
@@ -38,48 +38,48 @@ def webhook():
     except Exception as e:
         print("SID:", account_sid)
         print("TOKEN:", auth_token)
-        print("Erro ao baixar imagem:", e)
-        resp.message("Erro ao baixar a imagem. Tente novamente, por favor.")
+        print("Error downloading image:", e)
+        resp.message("Error downloading the image. Please try again.")
         return str(resp)
 
     timestamp = int(time.time())
     filename = f"{timestamp}.jpg"
-    filepath = os.path.join(PASTA_IMAGENS, filename)
+    filepath = os.path.join(IMAGES_FOLDER, filename)
 
     with open(filepath, "wb") as f:
         f.write(image_response.content)
 
     try:
-        # Passo 1: verificar se é pulmão
-        classe_pulmao, confianca_pulmao = detector_pulmao.detectar_imagem(filepath)
+        # Step 1: verify if it's a lung
+        lung_class, lung_confidence = lung_detector.detect_image(filepath)
 
-        if classe_pulmao != "PULMÃO":
-            mensagem = f"⛔ A imagem enviada não parece ser um raio-x de pulmão.\n❌ Confiança: {confianca_pulmao * 100:.1f}% "
-            resp.message(mensagem)
+        if lung_class != "LUNG":
+            message = f"⛔ The sent image does not appear to be a lung X-ray.\n❌ Confidence: {lung_confidence * 100:.1f}% "
+            resp.message(message)
             os.remove(filepath)
             return str(resp)
 
-        # Passo 2: diagnosticar pneumonia
-        classe_pneumonia, confianca_pneumonia = detector_pneumonia.diagnosticar_imagem(filepath)
+        # Step 2: diagnose pneumonia
+        pneumonia_class, pneumonia_confidence = pneumonia_detector.diagnose_image(filepath)
         os.remove(filepath)
 
-        if classe_pneumonia == "PNEUMONIA":
-            mensagem = (
-                f"🆘 A imagem é de um pulmão.\n"
-                f"🚨 **Diagnóstico**: Pneumonia detectada com confiança de {confianca_pneumonia * 100:.1f}%."
+        if pneumonia_class == "PNEUMONIA":
+            message = (
+                f"🆘 The image is of a lung.\n"
+                f"🚨 **Diagnosis**: Pneumonia detected with confidence of {pneumonia_confidence * 100:.1f}%."
             )
         else:
-            mensagem = (
-                f"✅ A imagem é de um pulmão.\n"
-                f"🎉 **Diagnóstico**: Não há sinais de pneumonia. Confiança: {confianca_pneumonia * 100:.1f}%."
+            message = (
+                f"✅ The image is of a lung.\n"
+                f"🎉 **Diagnosis**: No signs of pneumonia. Confidence: {pneumonia_confidence * 100:.1f}%."
             )
 
-        print(mensagem)
-        resp.message(mensagem)
+        print(message)
+        resp.message(message)
 
     except Exception as e:
-        print("Erro durante o processamento:", e)
-        resp.message("Tive um erro ao processar a imagem. Tente novamente mais tarde, tá bom?")
+        print("Error during processing:", e)
+        resp.message("I had an error processing the image. Please try again later.")
 
     return str(resp)
 

@@ -18,8 +18,8 @@
 - **Language**: Python 3.11 with Flask, TensorFlow/Keras, managed by mise + uv
 - **Formatting**: Use ruff for linting and formatting (configured in pyproject.toml)
 - **Imports**: Standard libs first, then third-party (Flask, TensorFlow, etc.), then local (`from service import ...`)
-- **Naming**: snake_case for functions/variables, PascalCase for classes (e.g., `DetectorDePneumonia`)
-- **Portuguese**: Variable/function names in Portuguese (e.g., `diagnosticar_imagem`, `classe`, `confianca`)
+- **Naming**: snake_case for functions/variables, PascalCase for classes (e.g., `PneumoniaDetectorService`, `LungDetector`)
+- **English**: Variable/function names in English (e.g., `diagnose_image`, `class_name`, `confidence`)
 - **Error handling**: Try-except blocks return JSON errors with 400/500 status codes
 - **File handling**: Always clean up temp files with `os.remove()` after processing
 - **Image preprocessing**: Normalize to 0-1 range or use ResNet50 preprocessing, target size 224x224
@@ -30,6 +30,6 @@
 
 ## Architecture
 - Flask API (`app.py`) with 3 main endpoints: `/verificar_pulmao`, `/diagnosticar_pneumonia`, `/diagnostico_completo`
-- Service layer pattern: `DetectorDePulmao` and `DetectorDePneumonia` classes handle ML logic
+- Service layer pattern: `LungDetector` and `PneumoniaDetectorService` classes handle ML logic
 - Twilio webhook integration for WhatsApp bot (`service/chat_bot_service.py`)
 - Temp files stored in `temp/` directory, created on startup

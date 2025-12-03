@@ -5,62 +5,62 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 
 
-class DetectorDePulmao:
-    def __init__(self, caminho_modelo, tamanho_img=(224, 224)):
+class LungDetector:
+    def __init__(self, model_path, img_size=(224, 224)):
         """
-        Inicializa o detector de pulmões carregando o modelo treinado.
+        Initialize the lung detector by loading the trained model.
 
-        Parâmetros:
-        - caminho_modelo: Caminho para o arquivo do modelo salvo (.keras).
-        - tamanho_img: Tamanho esperado das imagens (default = (224, 224)).
+        Parameters:
+        - model_path: Path to the saved model file (.keras).
+        - img_size: Expected image size (default = (224, 224)).
         """
-        self.modelo = load_model(caminho_modelo)
-        self.tamanho_img = tamanho_img
+        self.model = load_model(model_path)
+        self.img_size = img_size
 
-    def _preprocessar_imagem(self, caminho_imagem):
+    def _preprocess_image(self, image_path):
         """
-        Pré-processa a imagem para o formato esperado pela rede neural.
+        Preprocess the image to the format expected by the neural network.
 
-        Parâmetros:
-        - caminho_imagem: Caminho para a imagem a ser processada.
+        Parameters:
+        - image_path: Path to the image to be processed.
 
-        Retorna:
-        - imagem preparada para predição (tensor 4D).
+        Returns:
+        - Image prepared for prediction (4D tensor).
         """
-        img = image.load_img(caminho_imagem, target_size=self.tamanho_img)
+        img = image.load_img(image_path, target_size=self.img_size)
         img_array = image.img_to_array(img)
-        img_array = img_array / 255.0  # Normaliza os pixels
-        return np.expand_dims(img_array, axis=0)  # Adiciona dimensão do batch
+        img_array = img_array / 255.0  # Normalize pixels
+        return np.expand_dims(img_array, axis=0)  # Add batch dimension
 
-    def detectar_imagem(self, caminho_imagem):
+    def detect_image(self, image_path):
         """
-        Detecta se a imagem é ou não um pulmão.
+        Detect whether the image is a lung or not.
 
-        Parâmetros:
-        - caminho_imagem: Caminho da imagem a ser analisada.
+        Parameters:
+        - image_path: Path to the image to be analyzed.
 
-        Retorna:
-        - Uma tupla (classe_predita, confianca) indicando o resultado.
+        Returns:
+        - A tuple (predicted_class, confidence) indicating the result.
         """
-        imagem_processada = self._preprocessar_imagem(caminho_imagem)
-        pred = self.modelo.predict(imagem_processada)[0][0]
-        classe = "PULMÃO" if pred > 0.5 else "NÃO É PULMÃO"
-        confianca = pred if pred > 0.5 else 1 - pred
-        print(f"{os.path.basename(caminho_imagem)}: {classe} (confiança: {confianca:.2f})")
-        return classe, confianca
+        processed_image = self._preprocess_image(image_path)
+        pred = self.model.predict(processed_image)[0][0]
+        class_name = "LUNG" if pred > 0.5 else "NOT A LUNG"
+        confidence = pred if pred > 0.5 else 1 - pred
+        print(f"{os.path.basename(image_path)}: {class_name} (confidence: {confidence:.2f})")
+        return class_name, confidence
 
-    def detectar_pasta(self, pasta_imgs):
+    def detect_folder(self, images_folder):
         """
-        Detecta todas as imagens dentro de uma pasta, indicando se são ou não pulmões.
+        Detect all images within a folder, indicating whether they are lungs or not.
 
-        Parâmetros:
-        - pasta_imgs: Caminho da pasta com as imagens a serem analisadas.
+        Parameters:
+        - images_folder: Path to the folder with images to be analyzed.
         """
-        for nome_arquivo in os.listdir(pasta_imgs):
-            caminho = os.path.join(pasta_imgs, nome_arquivo)
-            if os.path.isfile(caminho):
-                imagem_processada = self._preprocessar_imagem(caminho)
-                pred = self.modelo.predict(imagem_processada)[0][0]
-                classe = "PULMÃO" if pred > 0.5 else "NÃO É PULMÃO"
-                confianca = pred if pred > 0.5 else 1 - pred
-                print(f"{nome_arquivo}: {classe} (confiança: {confianca:.2f})")
+        for filename in os.listdir(images_folder):
+            path = os.path.join(images_folder, filename)
+            if os.path.isfile(path):
+                processed_image = self._preprocess_image(path)
+                pred = self.model.predict(processed_image)[0][0]
+                class_name = "LUNG" if pred > 0.5 else "NOT A LUNG"
+                confidence = pred if pred > 0.5 else 1 - pred
+                print(f"{filename}: {class_name} (confidence: {confidence:.2f})")
