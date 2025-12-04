@@ -16,14 +16,6 @@ run = "uv sync --extra dev"
 description = "Run Flask API on port 5001"
 run = "uv run python app.py"
 
-[tasks.bot]
-description = "Run WhatsApp bot service"
-run = "uv run python service/chat_bot_service.py"
-
-[tasks.test-model]
-description = "Test model with sample images"
-run = "uv run python testar_modelo.py"
-
 [tasks.lint]
 description = "Lint code with ruff"
 run = "uv run ruff check ."

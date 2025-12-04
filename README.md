@@ -1,41 +1,41 @@
-# 🫁 PneumoFinder APIRestful
+# 🫁 PneumoFinder API RESTful
 
-![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python)  ![Flask](https://img.shields.io/badge/Flask-API-lightgrey?logo=flask)  ![TensorFlow](https://img.shields.io/badge/TensorFlow-CNN-orange?logo=tensorflow)  ![Twilio](https://img.shields.io/badge/Twilio-WhatsApp-green?logo=twilio)  ![Status](https://img.shields.io/badge/Status-Em%20Desenvolvimento-yellow)  
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)  ![Flask](https://img.shields.io/badge/Flask-API-lightgrey?logo=flask)  ![TensorFlow](https://img.shields.io/badge/TensorFlow-CNN-orange?logo=tensorflow)  ![Twilio](https://img.shields.io/badge/Twilio-WhatsApp-green?logo=twilio)  ![Status](https://img.shields.io/badge/Status-Em%20Desenvolvimento-yellow)  
 
 ---
 
 O **PneumoFinder** é uma API RESTful desenvolvida em **Flask** que utiliza **Redes Neurais Convolucionais (CNNs)** e **Modelos de Linguagem Multimodais (LLMs)** para análise de radiografias de pulmão.  
 A aplicação é capaz de:
 
-- Verificar se a imagem enviada é de um pulmão.  
-- Detectar sinais de **pneumonia** em radiografias.  
-- Fornecer diagnósticos completos com nível de confiança.  
-- Gerar **descrições clínicas explicativas** usando LLaVA (Large Language and Vision Assistant).  
-- Produzir **visualizações Grad-CAM** (heatmaps e overlays) das regiões de atenção do modelo.  
-- Integrar-se ao **WhatsApp** via Twilio, permitindo que o usuário envie a radiografia e receba o diagnóstico diretamente no aplicativo de mensagens.  
+- Detectar sinais de **pneumonia** em radiografias de tórax com CNN baseada em ResNet50  
+- Fornecer diagnósticos com nível de confiança e persistência em banco de dados  
+- Gerar **descrições clínicas explicativas** usando LLaVA (Large Language and Vision Assistant)  
+- Produzir **visualizações Grad-CAM** (heatmaps e overlays) das regiões de atenção do modelo  
+- **Busca semântica** de diagnósticos similares usando embeddings vetoriais (ChromaDB)  
+- Integrar-se ao **WhatsApp** via Twilio, permitindo que o usuário envie a radiografia e receba o diagnóstico diretamente no aplicativo de mensagens  
 
 ---
 
 ## 📌 Funcionalidades
 
-### Endpoints de Diagnóstico
-- **`POST /diagnose`** → Diagnóstico simples de pneumonia com CNN  
-- **`POST /diagnose/explained`** → Diagnóstico completo com Grad-CAM + descrição clínica do LLM  
+### Endpoints Principais de Diagnóstico
+- **`POST /diagnose`** → Diagnóstico de pneumonia com CNN (retorna JSON com diagnosis_id, diagnosis, confidence)  
+- **`POST /diagnose/explained`** → Diagnóstico completo com Grad-CAM + descrição clínica do LLM + visualizações  
 - **`GET /health`** → Health check da API  
 
-### Endpoints de Dados (Database)
-- **`GET /api/diagnoses/<id>`** → Recupera diagnóstico completo por ID  
-- **`POST /api/search/similar`** → Busca semântica de diagnósticos similares  
-- **`GET /api/diagnoses/recent`** → Lista diagnósticos recentes  
+### Endpoints de Banco de Dados
+- **`GET /api/diagnoses/<id>`** → Recupera diagnóstico completo por ID (inclui heatmap/overlay em base64)  
+- **`POST /api/search/similar`** → Busca semântica de diagnósticos similares usando embeddings  
+- **`GET /api/diagnoses/recent`** → Lista diagnósticos recentes (padrão: 10)  
 
-### Endpoints em Português (legados - compatibilidade)
-- **`/verificar_pulmao`** → Verifica se a imagem enviada é de um pulmão  
-- **`/diagnosticar_pneumonia`** → Detecta pneumonia em uma radiografia de pulmão  
-- **`/diagnostico_completo`** → Verificação completa: identifica pulmão e analisa pneumonia  
-- **`/diagnosticar_com_descricao`** → Diagnóstico multimodal com CNN + LLM + Grad-CAM  
+### Endpoints Legados (Compatibilidade)
+Os seguintes endpoints em português redirecionam para os endpoints principais:
+- **`POST /diagnosticar_pneumonia`** → Redireciona para `/diagnose`  
+- **`POST /diagnostico_completo`** → Redireciona para `/diagnose`  
+- **`POST /diagnosticar_com_descricao`** → Redireciona para `/diagnose/explained`  
 
 ### Integração WhatsApp
-- **`/webhook`** → Endpoint conectado ao **Twilio** para diagnósticos via WhatsApp  
+- **`POST /webhook`** → Endpoint webhook do Twilio para receber mensagens e imagens via WhatsApp  
 
 ---
 
@@ -62,9 +62,8 @@ A aplicação é capaz de:
 
 ```
 PneumoFinder/
-│── models/                  # Modelos treinados (.keras)
-│   ├── pneumonia_model.keras
-│   └── pulmao_model.keras
+│── models/                  # Modelo treinado (.keras)
+│   └── pneumonia_model.keras
 │
 │── src/                     # Código-fonte refatorado (arquitetura funcional)
 │   ├── api/
@@ -96,7 +95,7 @@ PneumoFinder/
 │── prompts/
 │   └── medical_analysis.txt # Template de prompt para LLM
 │
-│── temp/                    # Pasta temporária para uploads e visualizações
+│── temp/                    # Pasta temporária para uploads
 │── data/samples/            # Imagens de exemplo (gitignored)
 │── tests/                   # Testes automatizados
 │
@@ -167,22 +166,16 @@ PneumoFinder/
    ```bash
    mise run run
    # ou: uv run python app.py
-   ```
-
-7. Para rodar o webhook do WhatsApp:
-   ```bash
-   mise run bot
-   # ou: uv run python service/chat_bot_service.py
+   # API estará disponível em http://localhost:5001
    ```
 
 ### Comandos Disponíveis
 
-- `mise run install` - Instala dependências
-- `mise run run` - Executa a API Flask
-- `mise run bot` - Executa o bot do WhatsApp
-- `mise run test-model` - Testa o modelo com imagens de exemplo
+- `mise run install` - Instala dependências com uv sync
+- `mise run run` - Executa a API Flask (porta 5001)
 - `mise run lint` - Verifica código com ruff
 - `mise run format` - Formata código com ruff
+- `mise run format-check` - Verifica formatação sem modificar
 
 ### Migração do ambiente antigo (opcional)
 
@@ -200,46 +193,78 @@ mise run install
 
 ## ✅ Exemplos de Uso
 
-### 1. Diagnóstico Tradicional (cURL)
+### 1. Diagnóstico Simples (cURL)
 
 ```bash
-curl -X POST http://localhost:5001/diagnostico_completo \
-  -F "imagem=@radiografia_teste.jpg"
+curl -X POST http://localhost:5001/diagnose \
+  -F "image=@radiografia_teste.jpg"
 ```
 
 Resposta esperada:
 ```json
 {
-  "classe_pulmao": "PULMÃO",
-  "confianca_pulmao": 0.98,
-  "classe_pneumonia": "NORMAL",
-  "confianca_pneumonia": 0.92
+  "diagnosis_id": 42,
+  "diagnosis": "PNEUMONIA",
+  "confidence": 0.8734
 }
 ```
 
-### 2. Diagnóstico Multimodal com LLM (cURL)
+**Nota:** Se a mesma imagem for enviada novamente, o sistema retornará o mesmo `diagnosis_id` (deduplicação por SHA-256).
+
+### 2. Diagnóstico Completo com Explicação (cURL)
 
 ```bash
-curl -X POST http://localhost:5001/diagnosticar_com_descricao \
-  -F "imagem=@radiografia_teste.jpg"
+curl -X POST http://localhost:5001/diagnose/explained \
+  -F "image=@radiografia_teste.jpg"
 ```
 
 Resposta esperada:
 ```json
 {
-  "class": "PNEUMONIA",
+  "diagnosis_id": 42,
+  "diagnosis": "PNEUMONIA",
   "confidence": 0.8734,
-  "description": "The model has identified pneumonia in this chest X-ray with 87% confidence. The areas of concern are visible in the lower right lung field, showing increased opacity consistent with consolidation. The heatmap highlights regions where the neural network detected patterns associated with bacterial pneumonia, particularly in the right lower lobe.",
-  "heatmap_url": "/static/temp/radiografia_teste_heatmap.png",
-  "overlay_url": "/static/temp/radiografia_teste_overlay.png"
+  "clinical_description": "The model has identified pneumonia in this chest X-ray with 87% confidence. The areas of concern are visible in the lower right lung field, showing increased opacity consistent with consolidation. The heatmap highlights regions where the neural network detected patterns associated with bacterial pneumonia, particularly in the right lower lobe.",
+  "visualizations": {
+    "heatmap": "data:image/png;base64,iVBORw0KGgo...",
+    "overlay": "data:image/png;base64,iVBORw0KGgo..."
+  }
 }
 ```
 
-### 3. Visualizando as Imagens Geradas
+### 3. Buscar Diagnóstico por ID
 
-Após fazer o diagnóstico multimodal, você pode acessar as visualizações no navegador:
-- **Heatmap:** `http://localhost:5001/static/temp/radiografia_teste_heatmap.png`
-- **Overlay:** `http://localhost:5001/static/temp/radiografia_teste_overlay.png`
+```bash
+curl http://localhost:5001/api/diagnoses/42
+```
+
+Resposta:
+```json
+{
+  "id": 42,
+  "image_hash": "a3f2b1c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7",
+  "diagnosis": "PNEUMONIA",
+  "confidence": 0.8734,
+  "clinical_description": "...",
+  "heatmap": "data:image/png;base64,...",
+  "overlay": "data:image/png;base64,...",
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+### 4. Busca Semântica de Casos Similares
+
+```bash
+curl -X POST http://localhost:5001/api/search/similar \
+  -H "Content-Type: application/json" \
+  -d '{"query": "infiltrates in lower right lung field", "top_k": 5}'
+```
+
+### 5. Listar Diagnósticos Recentes
+
+```bash
+curl "http://localhost:5001/api/diagnoses/recent?limit=10"
+```
 
 ---
 
@@ -254,33 +279,36 @@ Após fazer o diagnóstico multimodal, você pode acessar as visualizações no 
 
 ## 📌 Observações
 
-- O modelo espera imagens no formato e tamanho específico (224x224).
-- As imagens são normalizadas antes de serem enviadas ao modelo.
-- O projeto está em ambiente local para testes. Para produção, considere segurança, performance e escalabilidade.
+- O modelo espera imagens de radiografias de tórax no formato padrão (processadas para 224x224 pixels).
+- As imagens são automaticamente normalizadas e pré-processadas antes da inferência.
+- **Deduplicação automática:** A mesma imagem enviada múltiplas vezes não será reprocessada (usa SHA-256).
+- **Visualizações:** Heatmaps e overlays são armazenados como BLOBs no banco de dados (não no filesystem).
+- O projeto está configurado para ambiente local. Para produção, considere segurança, performance e escalabilidade.
 
 ---
 
 ## 🧠 Sobre os Modelos de IA
 
 ### CNN (Rede Neural Convolucional)
-O modelo base é uma CNN baseada em **ResNet50** treinada com imagens reais de radiografias de pulmão com e sem pneumonia. 
-- Formato: `.keras`
-- Entrada: Imagens 224x224 pixels normalizadas
-- Saída: Classificação binária (NORMAL/PNEUMONIA) com nível de confiança
-- Acurácia atual: **~80%** (em processo de aprimoramento)
-- Limiar de decisão: 0.5
+O modelo é uma CNN baseada em **ResNet50** treinada com o dataset Kaggle Chest X-Ray Images (Pneumonia).
+- **Arquivo:** `models/pneumonia_model.keras`
+- **Entrada:** Imagens 224x224 pixels (pré-processamento ResNet50)
+- **Saída:** Classificação binária (NORMAL/PNEUMONIA) com score de confiança
+- **Acurácia:** ~80% (em aprimoramento contínuo)
+- **Limiar de decisão:** 0.5
 
 ### Grad-CAM (Visualização de Atenção)
 Técnica de **explainability** que gera mapas de calor (heatmaps) mostrando quais regiões da radiografia influenciaram a decisão da CNN:
-- **Heatmap:** Mapa de calor puro com gradiente de cores
-- **Overlay:** Heatmap sobreposto à imagem original para contexto anatômico
+- **Heatmap:** Mapa de calor puro com gradiente vermelho (áreas críticas)
+- **Overlay:** Heatmap sobreposto à radiografia original para contexto anatômico
+- **Armazenamento:** BLOBs binários no banco de dados (não arquivos temporários)
 
 ### LLaVA 7B (Large Language and Vision Assistant)
 Modelo multimodal de **7 bilhões de parâmetros** que combina visão computacional com linguagem natural:
 - **Função:** Gera descrições clínicas explicativas em linguagem médica profissional
 - **Arquitetura:** CLIP (visão) + Vicuna 7B (linguagem)
 - **Execução:** Local via Ollama (sem envio de dados para APIs externas)
-- **Entrada:** Imagem original + predição CNN + visualizações Grad-CAM
+- **Entrada:** Radiografia original + predição CNN + visualizações Grad-CAM
 - **Saída:** Narrativa clínica com localização anatômica e interpretação dos achados
 
 ### Pipeline Multimodal
@@ -291,7 +319,7 @@ Radiografia → CNN (ResNet50) → Predição (87% PNEUMONIA)
                     ↓
             LLaVA 7B (via Ollama) → Descrição clínica explicativa
                     ↓
-        JSON com diagnóstico + visualizações + explicação
+        JSON + Armazenamento no Banco (SQLite + ChromaDB)
 ```
 
 ---
@@ -321,32 +349,60 @@ O PneumoFinder utiliza um sistema híbrido de armazenamento com **SQLite** (dado
 ### Funcionalidades
 - ✅ **Persistência de diagnósticos** com deduplicação automática (SHA-256)
 - ✅ **Busca semântica** de casos similares usando embeddings de 384 dimensões  
-- ✅ **Armazenamento de visualizações** (heatmaps/overlays) como BLOBs binários
-- ✅ **Histórico completo** de diagnósticos com metadados
-- ✅ **Zero configuração** - banco inicializado automaticamente
+- ✅ **Armazenamento de visualizações** (heatmaps/overlays) como BLOBs binários no SQLite
+- ✅ **Histórico completo** de diagnósticos com metadados e timestamps
+- ✅ **Zero configuração** - banco inicializado automaticamente no primeiro uso
 
 ### Deduplicação Inteligente
 Ao enviar a mesma imagem múltiplas vezes:
-1. Calcula SHA-256 da imagem
+1. Calcula SHA-256 hash da imagem
 2. Busca hash no banco de dados  
-3. Se existir, retorna o diagnosis_id existente (não processa novamente)
-4. Se não existir, realiza novo diagnóstico e salva
+3. Se existir → retorna o `diagnosis_id` existente (não reprocessa)
+4. Se não existir → realiza novo diagnóstico e salva
 
-### Busca Semântica
+**Exemplo:**
 ```bash
-# Buscar casos similares
-curl -X POST http://localhost:5001/api/search/similar \
-  -H "Content-Type: application/json" \
-  -d '{"query": "infiltrates in lower lung field", "top_k": 5}'
+# Primeira requisição: processa e salva (diagnosis_id: 42)
+curl -X POST http://localhost:5001/diagnose -F "image=@chest_xray.jpg"
+
+# Segunda requisição (mesma imagem): retorna diagnosis_id: 42 instantaneamente
+curl -X POST http://localhost:5001/diagnose -F "image=@chest_xray.jpg"
 ```
 
-### Recuperar Diagnósticos
+### Busca Semântica com ChromaDB
 ```bash
-# Buscar diagnóstico específico por ID
+# Buscar casos similares por descrição clínica
+curl -X POST http://localhost:5001/api/search/similar \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "infiltrates in lower lung field with consolidation",
+    "top_k": 5
+  }'
+```
+
+**Retorna:**
+```json
+{
+  "results": [
+    {
+      "id": 42,
+      "diagnosis": "PNEUMONIA",
+      "confidence": 0.87,
+      "similarity": 0.92,
+      "clinical_description": "...",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+### Recuperar Diagnósticos Salvos
+```bash
+# Buscar diagnóstico específico (inclui heatmap/overlay em base64)
 curl http://localhost:5001/api/diagnoses/42
 
 # Listar diagnósticos recentes
-curl http://localhost:5001/api/diagnoses/recent?limit=10
+curl "http://localhost:5001/api/diagnoses/recent?limit=10"
 ```
 
-Para detalhes técnicos, consulte `docs/DATABASE_INTEGRATION.md`.
+Para detalhes técnicos completos sobre a arquitetura do banco de dados, consulte `docs/DATABASE_INTEGRATION.md`.
