@@ -8,11 +8,29 @@ import tensorflow as tf
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.preprocessing import image
 
+from service.llm_service import LLMService
+
 
 class PneumoniaDetectorService:
-    def __init__(self, model_path, img_size=(224, 224)):
+    def __init__(self, model_path, img_size=(224, 224), enable_llm=True):
         self.img_size = img_size
         self.model = load_model(model_path)
+        self.enable_llm = enable_llm
+
+        # Initialize LLM service if enabled
+        self.llm_service = None
+        if enable_llm:
+            try:
+                self.llm_service = LLMService()
+                if self.llm_service.is_available():
+                    print("LLM service initialized successfully (llava:7b)")
+                else:
+                    print(
+                        "Warning: LLM service unavailable. Will use fallback descriptions."
+                    )
+            except Exception as e:
+                print(f"Warning: Could not initialize LLM service: {e}")
+                self.llm_service = None
 
         # FORCE INITIALIZATION
         dummy = tf.zeros((1, *img_size, 3))
@@ -180,3 +198,69 @@ class PneumoniaDetectorService:
 
         print(f"Report saved: {folder}/")
         return class_name, confidence, folder
+
+    def diagnose_with_llm_explanation(self, image_path, temp_folder="temp"):
+        """
+        Diagnose pneumonia with LLM-generated clinical description.
+        Returns: (class_name, confidence, llm_description, overlay_path, heatmap_path)
+        """
+        # Create temp folder if not exists
+        os.makedirs(temp_folder, exist_ok=True)
+
+        # Preprocess and predict
+        img_pil, arr = self._preprocess(image_path)
+        pred = float(self.model.predict(arr, verbose=0)[0][0])
+        class_name = "PNEUMONIA" if pred > 0.5 else "NORMAL"
+        confidence = pred if pred > 0.5 else 1 - pred
+
+        print(f"Diagnosis: {class_name} ({confidence:.1%})")
+
+        # Generate Grad-CAM
+        cam = self._gradcam_smooth(arr)
+        img_bgr = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+        heatmap = self._apply_heatmap_red(cam)
+        overlay = self._overlay(img_bgr, heatmap, alpha=0.7)
+
+        # Save heatmap and overlay to temp folder
+        base_name = os.path.splitext(os.path.basename(image_path))[0]
+        heatmap_path = os.path.join(temp_folder, f"{base_name}_heatmap.png")
+        overlay_path = os.path.join(temp_folder, f"{base_name}_overlay.png")
+
+        cv2.imwrite(heatmap_path, heatmap)
+        cv2.imwrite(overlay_path, overlay)
+
+        # Generate LLM description
+        llm_description = None
+        if self.llm_service:
+            try:
+                print("Generating LLM clinical description...")
+                llm_description = self.llm_service.generate_clinical_description(
+                    class_name=class_name,
+                    confidence=confidence,
+                    original_image_path=image_path,
+                    overlay_image_path=overlay_path,
+                )
+                print("LLM description generated successfully")
+            except Exception as e:
+                print(f"Error generating LLM description: {e}")
+                llm_description = None
+
+        # Fallback if LLM fails or disabled
+        if not llm_description:
+            if class_name == "PNEUMONIA":
+                llm_description = (
+                    f"The CNN model detected signs of pneumonia with {confidence*100:.1f}% confidence. "
+                    f"The Grad-CAM visualization highlights regions of the lung that influenced this diagnosis. "
+                    f"Further clinical evaluation and additional imaging may be warranted.\n\n"
+                    f"⚠️ Disclaimer: This AI analysis is for educational purposes only. "
+                    f"Always consult qualified healthcare professionals for medical decisions."
+                )
+            else:
+                llm_description = (
+                    f"The CNN model indicates normal lung appearance with {confidence*100:.1f}% confidence. "
+                    f"No significant abnormalities were detected in the analyzed regions.\n\n"
+                    f"⚠️ Disclaimer: This AI analysis is for educational purposes only. "
+                    f"Always consult qualified healthcare professionals for medical decisions."
+                )
+
+        return class_name, confidence, llm_description, overlay_path, heatmap_path

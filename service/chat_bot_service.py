@@ -4,12 +4,10 @@ import time
 import requests
 from flask import Flask, request
 from pneumonia_service import PneumoniaDetectorService
-from pulmao_service import LungDetector
 from requests.auth import HTTPBasicAuth
 from twilio.twiml.messaging_response import MessagingResponse
 
-# Initialize the detectors with the paths to the saved models
-lung_detector = LungDetector("../models/pulmao_model.keras")
+# Initialize the pneumonia detector
 pneumonia_detector = PneumoniaDetectorService("../models/pneumonia_model.keras")
 
 app = Flask(__name__)
@@ -50,28 +48,17 @@ def webhook():
         f.write(image_response.content)
 
     try:
-        # Step 1: verify if it's a lung
-        lung_class, lung_confidence = lung_detector.detect_image(filepath)
-
-        if lung_class != "LUNG":
-            message = f"⛔ The sent image does not appear to be a lung X-ray.\n❌ Confidence: {lung_confidence * 100:.1f}% "
-            resp.message(message)
-            os.remove(filepath)
-            return str(resp)
-
-        # Step 2: diagnose pneumonia
+        # Diagnose pneumonia directly
         pneumonia_class, pneumonia_confidence = pneumonia_detector.diagnose_image(filepath)
         os.remove(filepath)
 
         if pneumonia_class == "PNEUMONIA":
             message = (
-                f"🆘 The image is of a lung.\n"
                 f"🚨 **Diagnosis**: Pneumonia detected with confidence of {pneumonia_confidence * 100:.1f}%."
             )
         else:
             message = (
-                f"✅ The image is of a lung.\n"
-                f"🎉 **Diagnosis**: No signs of pneumonia. Confidence: {pneumonia_confidence * 100:.1f}%."
+                f"✅ **Diagnosis**: No signs of pneumonia. Confidence: {pneumonia_confidence * 100:.1f}%."
             )
 
         print(message)
