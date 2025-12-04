@@ -29,6 +29,10 @@ class Config:
     llm_temperature: float = 0.3
     llm_enabled: bool = True
 
+    # ChromaDB settings (for Docker deployment)
+    chroma_host: str = "localhost"
+    chroma_port: int = 8000
+
     # Vector search configuration
     embedding_model: str = "all-MiniLM-L6-v2"
     vector_collection: str = "clinical_descriptions"
@@ -48,14 +52,20 @@ class Config:
         Returns:
             Config instance with values from environment
         """
+        # Handle OLLAMA_BASE_URL for Docker compatibility
+        ollama_host = os.getenv("OLLAMA_BASE_URL", os.getenv("OLLAMA_HOST", cls.ollama_host))
+
         return cls(
             cnn_model_path=os.getenv("CNN_MODEL_PATH", cls.cnn_model_path),
             temp_dir=os.getenv("TEMP_DIR", cls.temp_dir),
-            ollama_host=os.getenv("OLLAMA_HOST", cls.ollama_host),
+            ollama_host=ollama_host,
             ollama_model=os.getenv("OLLAMA_MODEL", cls.ollama_model),
             llm_enabled=os.getenv("LLM_ENABLED", "true").lower() == "true",
+            chroma_host=os.getenv("CHROMA_HOST", cls.chroma_host),
+            chroma_port=int(os.getenv("CHROMA_PORT", str(cls.chroma_port))),
             api_port=int(os.getenv("API_PORT", str(cls.api_port))),
-            debug_mode=os.getenv("DEBUG_MODE", "true").lower() == "true",
+            debug_mode=os.getenv("FLASK_DEBUG", os.getenv("DEBUG_MODE", "true")).lower()
+            in ("true", "1"),
         )
 
 

@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: pneumofinder-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pneumofinder-network
+    restart: unless-stopped
+
+  # PneumoFinder API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pneumofinder-api
+    ports:
+      - "5001:5001"
+    volumes:
+      # Mount models directory (read-only)
+      - ./models:/app/models:ro
+      # Mount database directory for SQLite persistence
+      - api-database:/app/database
+      # Mount temp directory for uploads
+      - api-temp:/app/temp
+    environment:
+      # Flask configuration
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      
+      # Ollama connection (host machine)
+      # Use host.docker.internal on Mac/Windows, or host network on Linux
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      
+      # ChromaDB connection (container network)
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      
+      # Twilio credentials (optional - for WhatsApp bot)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - pneumofinder-network
+    restart: unless-stopped
+    # Allow access to host machine for Ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  chroma-data:
+    driver: local
+  api-database:
+    driver: local
+  api-temp:
+    driver: local
+
+networks:
+  pneumofinder-network:
+    driver: bridge

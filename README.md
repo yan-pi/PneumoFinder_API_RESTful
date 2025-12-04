@@ -110,6 +110,42 @@ PneumoFinder/
 
 ## ⚙️ Instalação e Configuração
 
+### 🐳 Opção 1: Docker (Recomendado)
+
+A maneira mais rápida de rodar o projeto com todas as dependências isoladas:
+
+```bash
+# 1. Instale Docker Desktop
+# https://www.docker.com/products/docker-desktop
+
+# 2. Instale e inicie o Ollama no host (para acesso à GPU)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llava:7b
+ollama serve
+
+# 3. Clone o repositório
+git clone https://github.com/seu-usuario/pneumofinder.git
+cd pneumofinder
+
+# 4. Inicie os serviços
+docker-compose up -d
+
+# 5. Teste a API
+curl http://localhost:5001/health
+```
+
+✅ **Vantagens do Docker:**
+- Zero configuração de dependências Python
+- ChromaDB já configurado e isolado
+- Volumes persistentes para banco de dados
+- Fácil deploy em servidores
+
+📖 **Documentação completa:** [DOCKER.md](DOCKER.md)
+
+---
+
+### 💻 Opção 2: Instalação Local (Desenvolvimento)
+
 ### Pré-requisitos
 - [mise](https://mise.jdx.dev/getting-started.html) - Gerenciador de versões de ferramentas
   ```bash

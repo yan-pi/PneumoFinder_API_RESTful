@@ -4,9 +4,8 @@
 if __name__ == "__main__":
     from src.api.app import app, config, ensure_directory
 
-    # Ensure directories exist
+    # Ensure temp directory exists
     ensure_directory(config.temp_dir)
-    ensure_directory(config.reports_dir)
 
     # Run app
     print(f"\n🚀 Starting PneumoFinder API on port {config.api_port}...")
