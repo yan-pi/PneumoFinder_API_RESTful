@@ -18,10 +18,15 @@ A aplicação é capaz de:
 
 ## 📌 Funcionalidades
 
-### Endpoints em Inglês (novos)
+### Endpoints de Diagnóstico
 - **`POST /diagnose`** → Diagnóstico simples de pneumonia com CNN  
 - **`POST /diagnose/explained`** → Diagnóstico completo com Grad-CAM + descrição clínica do LLM  
 - **`GET /health`** → Health check da API  
+
+### Endpoints de Dados (Database)
+- **`GET /api/diagnoses/<id>`** → Recupera diagnóstico completo por ID  
+- **`POST /api/search/similar`** → Busca semântica de diagnósticos similares  
+- **`GET /api/diagnoses/recent`** → Lista diagnósticos recentes  
 
 ### Endpoints em Português (legados - compatibilidade)
 - **`/verificar_pulmao`** → Verifica se a imagem enviada é de um pulmão  
@@ -40,6 +45,9 @@ A aplicação é capaz de:
 - **Flask** - Framework web para API REST  
 - **Flask-CORS** - Habilita requisições entre origens  
 - **TensorFlow / Keras** - Modelos CNN (ResNet50) para classificação de imagens  
+- **SQLite** - Banco de dados relacional para armazenamento de diagnósticos  
+- **ChromaDB** - Banco de dados vetorial para busca semântica  
+- **sentence-transformers** - Geração automática de embeddings para similaridade  
 - **Ollama + LLaVA 7B** - Modelo de linguagem multimodal para descrições clínicas  
 - **OpenCV (cv2)** - Geração de visualizações Grad-CAM (heatmaps e overlays)  
 - **Twilio API** - Integração com WhatsApp  
@@ -65,6 +73,10 @@ PneumoFinder/
 │   │   ├── diagnosis.py     # Funções de inferência CNN
 │   │   ├── visualization.py # Geração de Grad-CAM
 │   │   └── clinical_description.py  # Integração com LLM
+│   ├── db/
+│   │   ├── database.py      # Gerenciamento de conexão SQLite
+│   │   ├── repositories.py  # Operações CRUD e deduplicação
+│   │   └── vector_store.py  # ChromaDB para busca semântica
 │   ├── utils/
 │   │   ├── config.py        # Configuração centralizada
 │   │   ├── file_utils.py    # Operações de arquivos
@@ -72,29 +84,27 @@ PneumoFinder/
 │   └── bots/
 │       └── whatsapp_bot.py  # Integração com WhatsApp
 │
-│── service/
-│   └── chat_bot_service.py  # Ponto de entrada do bot WhatsApp
+│── database/                # Banco de dados persistente
+│   ├── pneumofinder.db      # SQLite database
+│   └── vectors/             # ChromaDB collection storage
+│
+│── docs/                    # Documentação técnica
+│   ├── ARCHITECTURE.md      # Arquitetura do sistema
+│   ├── DATABASE_INTEGRATION.md  # Guia de integração do banco
+│   └── RESEARCH.md          # Pesquisa sobre LLM multimodal
 │
 │── prompts/
 │   └── medical_analysis.txt # Template de prompt para LLM
 │
 │── temp/                    # Pasta temporária para uploads e visualizações
-│── imgs_pulmoes/            # Imagens recebidas via WhatsApp
-│── imgs/                    # Imagens de exemplo/teste
-│── explicacoes/             # Exemplos de visualizações Grad-CAM
-│── relatorios/              # Relatórios gerados com visualizações
+│── data/samples/            # Imagens de exemplo (gitignored)
+│── tests/                   # Testes automatizados
 │
-│── app.py                   # Ponto de entrada da API (importa src.api.app)
-│── testar_modelo.py         # Script para testar modelos localmente
-│── test_multimodal.py       # Teste do serviço multimodal
-│── test_api_multimodal.py   # Teste do endpoint multimodal
-│
+│── app.py                   # Ponto de entrada da API
 │── pyproject.toml           # Dependências do projeto (gerenciado por uv)
 │── .mise.toml               # Configuração do mise (Python 3.11)
-│── requirements.txt         # Dependências (compatibilidade)
 │── .env.example             # Exemplo de variáveis de ambiente
 │── .gitignore               # Arquivos ignorados pelo git
-│── REFACTORING_SUMMARY.md   # Documentação da refatoração
 ```
 
 ---
@@ -303,3 +313,40 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 Feito por **[Cauã Farias]**  
 [LinkedIn](https://www.linkedin.com/in/cau%C3%A3-farias-739013288/) • [GitHub](https://github.com/CauZy-Goes)
+
+## 💾 Database & Semantic Search
+
+O PneumoFinder utiliza um sistema híbrido de armazenamento com **SQLite** (dados estruturados) e **ChromaDB** (busca vetorial).
+
+### Funcionalidades
+- ✅ **Persistência de diagnósticos** com deduplicação automática (SHA-256)
+- ✅ **Busca semântica** de casos similares usando embeddings de 384 dimensões  
+- ✅ **Armazenamento de visualizações** (heatmaps/overlays) como BLOBs binários
+- ✅ **Histórico completo** de diagnósticos com metadados
+- ✅ **Zero configuração** - banco inicializado automaticamente
+
+### Deduplicação Inteligente
+Ao enviar a mesma imagem múltiplas vezes:
+1. Calcula SHA-256 da imagem
+2. Busca hash no banco de dados  
+3. Se existir, retorna o diagnosis_id existente (não processa novamente)
+4. Se não existir, realiza novo diagnóstico e salva
+
+### Busca Semântica
+```bash
+# Buscar casos similares
+curl -X POST http://localhost:5001/api/search/similar \
+  -H "Content-Type: application/json" \
+  -d '{"query": "infiltrates in lower lung field", "top_k": 5}'
+```
+
+### Recuperar Diagnósticos
+```bash
+# Buscar diagnóstico específico por ID
+curl http://localhost:5001/api/diagnoses/42
+
+# Listar diagnósticos recentes
+curl http://localhost:5001/api/diagnoses/recent?limit=10
+```
+
+Para detalhes técnicos, consulte `docs/DATABASE_INTEGRATION.md`.
