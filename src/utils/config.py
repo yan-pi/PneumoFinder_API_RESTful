@@ -10,11 +10,9 @@ class Config:
 
     # Model paths
     cnn_model_path: str = "models/pneumonia_model.keras"
-    lung_model_path: str = "models/pulmao_model.keras"
 
     # Directories
     temp_dir: str = "temp"
-    reports_dir: str = "relatorios"
     uploads_dir: str = "imgs_pulmoes"
     database_dir: str = "database"
     vector_db_dir: str = "database/vectors"
@@ -52,7 +50,6 @@ class Config:
         """
         return cls(
             cnn_model_path=os.getenv("CNN_MODEL_PATH", cls.cnn_model_path),
-            lung_model_path=os.getenv("LUNG_MODEL_PATH", cls.lung_model_path),
             temp_dir=os.getenv("TEMP_DIR", cls.temp_dir),
             ollama_host=os.getenv("OLLAMA_HOST", cls.ollama_host),
             ollama_model=os.getenv("OLLAMA_MODEL", cls.ollama_model),

@@ -10,8 +10,11 @@ __pycache__/
 # Database files
 *.db
 *.sqlite3
+*.db-shm
+*.db-wal
 database/*.db
 database/*.db-*
+database/vectors/
 database/chroma/
 
 # Models (too large for git)
@@ -56,9 +59,9 @@ uv.lock
 temp/
 test_outputs/
 
-# Data directories (exclude from git, too large)
-imgs/
-!data/samples/
-relatorios/
-explicacoes/
+# Data directories (sample data tracked in data/samples/)
+data/samples/*.jpeg
+data/samples/*.jpg
+data/samples/*.png
+!data/samples/.gitkeep
 imgs_pulmoes/

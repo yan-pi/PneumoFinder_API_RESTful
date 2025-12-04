@@ -351,7 +351,6 @@ def diagnosticar_com_descricao_legacy():
 if __name__ == "__main__":
     # Ensure directories exist
     ensure_directory(config.temp_dir)
-    ensure_directory(config.reports_dir)
 
     # Run app
     print(f"\n🚀 Starting PneumoFinder API on port {config.api_port}...")

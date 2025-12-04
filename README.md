@@ -247,7 +247,7 @@ Após fazer o diagnóstico multimodal, você pode acessar as visualizações no 
 
 📸 **Exemplo de envio de radiografia e resposta do bot:**  
 
-![Chatbot WhatsApp - Exemplo 1](imgs/chatbot_pnumofinder.jpg)  
+![Chatbot WhatsApp - Exemplo 1](docs/chatbot_pnumofinder.jpg)  
 
 
 ---
