@@ -18,11 +18,19 @@ A aplicação é capaz de:
 
 ## 📌 Funcionalidades
 
-- **`/verificar_pulmao`** → Verifica se a imagem enviada é de um pulmão.  
-- **`/diagnosticar_pneumonia`** → Detecta pneumonia em uma radiografia de pulmão.  
-- **`/diagnostico_completo`** → Faz a verificação completa: primeiro identifica se é pulmão e, se confirmado, analisa a presença de pneumonia.  
-- **`/diagnosticar_com_descricao`** → **[NOVO]** Diagnóstico multimodal com CNN + LLM: detecta pneumonia, gera visualizações Grad-CAM e retorna descrição clínica explicativa usando LLaVA.  
-- **`/webhook`** → Endpoint conectado ao **Twilio** para receber mensagens no WhatsApp com imagens de radiografias e retornar automaticamente o diagnóstico.  
+### Endpoints em Inglês (novos)
+- **`POST /diagnose`** → Diagnóstico simples de pneumonia com CNN  
+- **`POST /diagnose/explained`** → Diagnóstico completo com Grad-CAM + descrição clínica do LLM  
+- **`GET /health`** → Health check da API  
+
+### Endpoints em Português (legados - compatibilidade)
+- **`/verificar_pulmao`** → Verifica se a imagem enviada é de um pulmão  
+- **`/diagnosticar_pneumonia`** → Detecta pneumonia em uma radiografia de pulmão  
+- **`/diagnostico_completo`** → Verificação completa: identifica pulmão e analisa pneumonia  
+- **`/diagnosticar_com_descricao`** → Diagnóstico multimodal com CNN + LLM + Grad-CAM  
+
+### Integração WhatsApp
+- **`/webhook`** → Endpoint conectado ao **Twilio** para diagnósticos via WhatsApp  
 
 ---
 
@@ -50,11 +58,22 @@ PneumoFinder/
 │   ├── pneumonia_model.keras
 │   └── pulmao_model.keras
 │
+│── src/                     # Código-fonte refatorado (arquitetura funcional)
+│   ├── api/
+│   │   └── app.py           # Rotas Flask (endpoints REST)
+│   ├── core/
+│   │   ├── diagnosis.py     # Funções de inferência CNN
+│   │   ├── visualization.py # Geração de Grad-CAM
+│   │   └── clinical_description.py  # Integração com LLM
+│   ├── utils/
+│   │   ├── config.py        # Configuração centralizada
+│   │   ├── file_utils.py    # Operações de arquivos
+│   │   └── image_utils.py   # Processamento de imagens
+│   └── bots/
+│       └── whatsapp_bot.py  # Integração com WhatsApp
+│
 │── service/
-│   ├── pneumonia_service.py # Classe PneumoniaDetectorService (CNN + Grad-CAM)
-│   ├── pulmao_service.py    # Classe LungDetector (verificação de pulmão)
-│   ├── llm_service.py       # Integração com LLaVA via Ollama
-│   └── chat_bot_service.py  # Bot do WhatsApp via Twilio
+│   └── chat_bot_service.py  # Ponto de entrada do bot WhatsApp
 │
 │── prompts/
 │   └── medical_analysis.txt # Template de prompt para LLM
@@ -65,8 +84,7 @@ PneumoFinder/
 │── explicacoes/             # Exemplos de visualizações Grad-CAM
 │── relatorios/              # Relatórios gerados com visualizações
 │
-│── app.py                   # API principal (endpoints REST)
-│── modelo.py                # Funções auxiliares do modelo
+│── app.py                   # Ponto de entrada da API (importa src.api.app)
 │── testar_modelo.py         # Script para testar modelos localmente
 │── test_multimodal.py       # Teste do serviço multimodal
 │── test_api_multimodal.py   # Teste do endpoint multimodal
@@ -76,6 +94,7 @@ PneumoFinder/
 │── requirements.txt         # Dependências (compatibilidade)
 │── .env.example             # Exemplo de variáveis de ambiente
 │── .gitignore               # Arquivos ignorados pelo git
+│── REFACTORING_SUMMARY.md   # Documentação da refatoração
 ```
 
 ---

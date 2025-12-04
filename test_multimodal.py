@@ -1,8 +1,11 @@
 """
 Test script for multimodal pneumonia detection (CNN + Grad-CAM + LLaVA LLM)
+Uses new functional architecture from src/
 """
 
-from service.pneumonia_service import PneumoniaDetectorService
+from src.core.diagnosis import load_cnn_model, diagnose_from_path
+from src.core.visualization import generate_gradcam_visualization
+from src.core.clinical_description import generate_clinical_description
 
 if __name__ == "__main__":
     print("=" * 80)
@@ -10,9 +13,9 @@ if __name__ == "__main__":
     print("Testing: CNN (ResNet50) + Grad-CAM + LLaVA LLM")
     print("=" * 80)
 
-    # Initialize detector with LLM enabled
-    print("\n1. Initializing PneumoniaDetectorService with LLM...")
-    detector = PneumoniaDetectorService("models/pneumonia_model.keras", enable_llm=True)
+    # Load model once
+    print("\n1. Loading CNN model...")
+    model = load_cnn_model("models/pneumonia_model.keras")
 
     # Test images
     test_images = [
@@ -26,21 +29,24 @@ if __name__ == "__main__":
         print("=" * 80)
 
         try:
-            (
-                class_name,
-                confidence,
-                llm_description,
-                overlay_path,
-                heatmap_path,
-            ) = detector.diagnose_with_llm_explanation(image_path)
+            # 1. CNN Diagnosis
+            class_name, confidence = diagnose_from_path(model, image_path)
 
             print(f"\n📊 DIAGNOSIS RESULT:")
             print(f"   Class: {class_name}")
             print(f"   Confidence: {confidence:.1%}")
 
+            # 2. Generate Grad-CAM visualizations
+            heatmap_path, overlay_path = generate_gradcam_visualization(model, image_path)
+
             print(f"\n🖼️  VISUALIZATION FILES:")
             print(f"   Heatmap: {heatmap_path}")
             print(f"   Overlay: {overlay_path}")
+
+            # 3. Generate LLM clinical description
+            llm_description = generate_clinical_description(
+                image_path, class_name, confidence, heatmap_path, overlay_path
+            )
 
             print(f"\n🤖 LLM CLINICAL DESCRIPTION:")
             print("-" * 80)
