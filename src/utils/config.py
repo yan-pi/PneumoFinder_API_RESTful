@@ -16,10 +16,13 @@ class Config:
     temp_dir: str = "temp"
     reports_dir: str = "relatorios"
     uploads_dir: str = "imgs_pulmoes"
+    database_dir: str = "database"
+    vector_db_dir: str = "database/vectors"
 
     # Model settings
     image_size: tuple[int, int] = (224, 224)
     prediction_threshold: float = 0.5
+    model_version: str = "1.0"
 
     # LLM settings
     ollama_host: str = "http://localhost:11434"
@@ -27,6 +30,10 @@ class Config:
     llm_max_tokens: int = 500
     llm_temperature: float = 0.3
     llm_enabled: bool = True
+
+    # Vector search configuration
+    embedding_model: str = "all-MiniLM-L6-v2"
+    vector_collection: str = "clinical_descriptions"
 
     # Prompts
     medical_prompt_path: str = "prompts/medical_analysis.txt"
