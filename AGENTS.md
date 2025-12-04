@@ -1,35 +1,25 @@
 # Agent Guidelines for PneumoFinder API
 
-## Prerequisites
-- Install [mise](https://mise.jdx.dev/) for tool management
-- mise will handle Python 3.11 and uv installation automatically
-
-## Build/Run Commands
-- **Setup environment**: `mise install` (installs Python 3.11 + creates .venv)
-- **Install dependencies**: `mise run install` or `uv sync`
-- **Run API**: `mise run run` or `uv run python app.py` (port 5001)
-- **Run WhatsApp bot**: `mise run bot` or `uv run python service/chat_bot_service.py`
-- **Test model**: `mise run test-model` or `uv run python testar_modelo.py`
-- **Lint code**: `mise run lint` or `uv run ruff check .`
-- **Format code**: `mise run format` or `uv run ruff format .`
-- **Check formatting**: `mise run format-check` or `uv run ruff format --check .`
+## Commands
+- **Install:** `mise run install` (or `uv sync --extra dev`)
+- **Run API:** `mise run run` (starts Flask on port 5001)
+- **Lint:** `mise run lint` (ruff check)
+- **Format:** `mise run format` (ruff auto-format)
+- **Tests:** `uv run pytest tests/` (single test: `uv run pytest tests/test_api.py::test_health`)
+- **Docker:** `docker-compose up --build` (API + ChromaDB)
 
 ## Code Style
-- **Language**: Python 3.11 with Flask, TensorFlow/Keras, managed by mise + uv
-- **Formatting**: Use ruff for linting and formatting (configured in pyproject.toml)
-- **Imports**: Standard libs first, then third-party (Flask, TensorFlow, etc.), then local (`from service import ...`)
-- **Naming**: snake_case for functions/variables, PascalCase for classes (e.g., `PneumoniaDetectorService`, `LungDetector`)
-- **English**: Variable/function names in English (e.g., `diagnose_image`, `class_name`, `confidence`)
-- **Error handling**: Try-except blocks return JSON errors with 400/500 status codes
-- **File handling**: Always clean up temp files with `os.remove()` after processing
-- **Image preprocessing**: Normalize to 0-1 range or use ResNet50 preprocessing, target size 224x224
-- **Models**: Load once at startup, stored in `models/` directory (.keras format)
-- **Endpoints**: POST methods with multipart/form-data for image uploads
-- **Environment**: Use `python-dotenv` for Twilio credentials in `.env`
-- **Line length**: 100 characters max (enforced by ruff)
+- **Language:** English for all code (functions, variables, comments); Portuguese allowed in UI/docs
+- **Formatting:** Ruff with line-length=100, double quotes, 4-space indent
+- **Imports:** Sort with isort (E, F, I checks enabled) - stdlib → third-party → local
+- **Types:** Use type hints for all functions: `def func(arg: str) -> tuple[str, float]:`
+- **Naming:** `snake_case` for functions/variables, `PascalCase` for classes
+- **Error Handling:** Specific exceptions with context, avoid bare `except:`
+- **Functions:** Pure functions preferred, keep under 50 lines, single responsibility
+- **Docstrings:** Google style with Args/Returns sections for all public functions
 
 ## Architecture
-- Flask API (`app.py`) with 3 main endpoints: `/verificar_pulmao`, `/diagnosticar_pneumonia`, `/diagnostico_completo`
-- Service layer pattern: `LungDetector` and `PneumoniaDetectorService` classes handle ML logic
-- Twilio webhook integration for WhatsApp bot (`service/chat_bot_service.py`)
-- Temp files stored in `temp/` directory, created on startup
+- **Functional approach:** `src/core/` has pure functions, no classes unless needed
+- **Config:** Use `src/utils/config.py`, support env vars (OLLAMA_BASE_URL, CHROMA_HOST)
+- **Database:** SQLite (structured) + ChromaDB (vectors), deduplication with SHA-256
+- **Never modify:** `models/`, `database/` (except via repositories)
