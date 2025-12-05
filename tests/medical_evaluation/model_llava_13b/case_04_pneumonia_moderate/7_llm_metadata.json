@@ -1,0 +1,14 @@
+{
+  "model": "llava:13b",
+  "case_id": "case_04_pneumonia_moderate",
+  "image_filename": "5_pneumonia3.jpeg",
+  "latency_cnn_ms": 137.24017143249512,
+  "latency_gradcam_ms": 6560.286998748779,
+  "latency_llm_en_ms": 10693.82929801941,
+  "latency_llm_pt_ms": 10281.516790390015,
+  "total_latency_ms": 17391.356468200684,
+  "word_count_en": 115,
+  "word_count_pt": 115,
+  "char_count_en": 806,
+  "char_count_pt": 806
+}

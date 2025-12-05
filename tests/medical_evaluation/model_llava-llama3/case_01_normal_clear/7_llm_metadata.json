@@ -1,0 +1,14 @@
+{
+  "model": "llava-llama3",
+  "case_id": "case_01_normal_clear",
+  "image_filename": "6_normal3.jpeg",
+  "latency_cnn_ms": 149.54113960266113,
+  "latency_gradcam_ms": 6810.572862625122,
+  "latency_llm_en_ms": 17145.09391784668,
+  "latency_llm_pt_ms": 8501.88422203064,
+  "total_latency_ms": 24105.207920074463,
+  "word_count_en": 173,
+  "word_count_pt": 153,
+  "char_count_en": 1096,
+  "char_count_pt": 981
+}

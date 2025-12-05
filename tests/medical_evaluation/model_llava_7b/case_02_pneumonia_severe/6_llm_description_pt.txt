@@ -1,0 +1,7 @@
+A imagem exibe um raio-X do peito com uma superposição de um mapa de calor indicando áreas de interesse para a detecção de pneumonia. As regiões destacadas sugerem que há focos de infiltrados presentes, o que pode ser indicativo de uma infecção ou inflamação localizada dentro dos pulmões. Especialmente, a lobe inferior direito do peito parece ter uma área mais prominentemente densa em comparação com outras partes do pulmão.
+
+Com base na diagnostica do AI e análise visual, é provável que haja pneumonia presente no lobe inferior direito do peito. O padrão dos infiltrados sugeriria uma consolidado focal, o que poderia ser causado por um processo de infecção ou inflamação dentro da área afetada.
+
+O nível de confiança do modelo AI para essa diagno é 100,0%, indicando um grau alto de certeza de que haja pneumonia presente. No entanto, é importante lembrar que, enquanto o AI identificou un possível problema, a correlação clínica com outras ferramentas diagnósticas e o histórico do paciente é necessária para confirmar a diagno e determinar tratamento adequado. Além disso, uma investigação adicional pode ser necessária para excluir outros possíveis causas de opacidade nos pulmões.
+
+⚠️ Aviso: esta análise do AI é feita apenas para fins educacionais. Sempre consultar profissionais qualificados em saúde para tomadas de decisão médicas.

@@ -1,0 +1,7 @@
+O imagem exibe um raio-X do peito com uma camada de calor superpôndo, iluminando áreas de interesse. O modelo diagnosticou o imagem como "NORMAL" com 100.0% confiança. A análise visual sugerir que nenhuma área de preocupação ou anomalia foi detectada pelo modelo AI.
+
+O calor mapa não mostra padrões focais, difusos, unilaterais ou bilaterais indicativos de pneumonia ou outras anomalias pulmonares. O nível de confiança é alto, no 100.0%, o que indica que o modelo acertou avaliar este raio-X do peito como normal sem quaisquer findinhas significativas.
+
+As considerações clínicas para este paciente incluem monitorar quaisquer sintomas respiratórios, como tosse, dor no peito ou dificuldade de respiração e levar em conta o histórico médico do paciente quando fazer uma avaliação completa da saúde geral do paciente.
+
+🚨 Aviso: Este análise AI é apenas um material educativo e sempre consulte profissionais de saúde qualificados para tomadas de decisão médica.

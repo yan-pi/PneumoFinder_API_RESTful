@@ -1,0 +1,7 @@
+{
+  "diagnosis": "PNEUMONIA",
+  "confidence": 0.9620551466941833,
+  "latency_ms": 109.88283157348633,
+  "ground_truth": "PNEUMONIA",
+  "correct": true
+}

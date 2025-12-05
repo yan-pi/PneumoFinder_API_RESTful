@@ -1,0 +1,36 @@
+{
+  "generation_date": "2025-12-05 10:30:46",
+  "random_seed": 42,
+  "models_tested": [
+    "llava:7b",
+    "llava:13b",
+    "llava-llama3"
+  ],
+  "test_cases": {
+    "case_01_normal_clear": {
+      "filename": "6_normal3.jpeg",
+      "ground_truth": "NORMAL"
+    },
+    "case_02_pneumonia_severe": {
+      "filename": "3_pneumonia1.jpeg",
+      "ground_truth": "PNEUMONIA"
+    },
+    "case_03_normal_challenging": {
+      "filename": "1_normal1.jpeg",
+      "ground_truth": "NORMAL"
+    },
+    "case_04_pneumonia_moderate": {
+      "filename": "5_pneumonia3.jpeg",
+      "ground_truth": "PNEUMONIA"
+    }
+  },
+  "cnn_model": "models/pneumonia_model.keras",
+  "cnn_architecture": "ResNet50",
+  "prompt_template": "prompts/medical_analysis.txt",
+  "ollama_config": {
+    "host": "http://localhost:11434",
+    "temperature": 0.3,
+    "max_tokens": 500
+  },
+  "total_processing_time_seconds": 326.404767036438
+}

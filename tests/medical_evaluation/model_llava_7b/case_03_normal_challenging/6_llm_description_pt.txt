@@ -1,0 +1,7 @@
+A imagem mostra um raio-X do peito com uma superfície de calor destacando áreas de preocupação. O modelo identificou um foco de atenção na parte inferior direita do pulmão, o que é indicativo de um potencial infiltração ou consolidamento. Isso pode sugerir uma área localizada de pneumonia ou outro processo pulmonar como um nódulo ou uma massa. A confiança do diagnóstico é 100,0% e o modelo não detectou quaisquer anomalias significativas nas partes restantes dos pulmões.
+
+Analisando visualmente, há um foco de preocupação dentro da parte inferior direita do pulmão que poderia representar uma área de consolidamento ou infiltração, o que pode indicar pneumonia ou outro processo pulmonar. A ausência de anomalias significativas em outras áreas sugere que a concentração é provavelmente unilateral e localizada à parte inferior direita do pulmão.
+
+A confiança no diagnóstico é alta, mas é importante lembrar que embora o AI tenha identificado um potencial problema, uma avaliação clínica adicional seria necessária para confirmar o diagnóstico e determinar a ação apropriada. Isso poderia incluir obter imagens adicionais ou realizar exames de diagnostic, como trabalhos de sangramento ou broncoscopia.
+
+⚠️ Aviso: Esta análise do AI é apenas para fins educacionais. Não substitua sempre consultar profissionais de saúde qualificados para decisões médicas.

@@ -1,0 +1,3 @@
+O mapa de calor sobre imagem de radiografia do tórax destaca áreas nos pulmões indicativas de possíveis anormalidades pulmonares. Essas áreas mostram aumento da densidade e intensidade do sinal, o que pode ser sugerente de pneumonia. A presença dessas opacidades indica um processo inflamatório dentro dos pulmões, provavelmente devido a uma infecção ou outra condição patológica. É importante destacar que embora o modelo AI tenha alta confiança (100,0%), considereações clínicas como histórico do paciente, sintomas e testes de diagnóstico adicionais podem ser necessárias para avaliação abrangente da condição do paciente.
+
+⚠️ Desculpa: Este análise AI é apenas educacional. Siempre consulte profissionais de saúde qualificados para decisões médicas.
