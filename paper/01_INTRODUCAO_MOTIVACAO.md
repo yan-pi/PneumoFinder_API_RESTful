@@ -1,6 +1,7 @@
 # 01 - Introdução e Motivação
 
 ## Sumário
+
 - [1. Contextualização](#1-contextualização)
 - [2. Problema de Pesquisa](#2-problema-de-pesquisa)
 - [3. Motivação](#3-motivação)
@@ -30,11 +31,13 @@ O diagnóstico de pneumonia baseia-se tradicionalmente em:
 3. **Exames laboratoriais:** Hemograma, gasometria
 
 A **radiografia de tórax** é crucial pois permite visualizar:
+
 - Infiltrados pulmonares (opacidades)
 - Consolidações (áreas de pulmão preenchidas com líquido)
 - Padrões característicos (lobares, intersticiais, bilaterais)
 
 **Desafios do diagnóstico radiológico:**
+
 - ⚠️ Requer radiologista especializado (escasso em áreas remotas)
 - ⏰ Interpretação subjetiva e demorada (15-30 min/exame)
 - 🤔 Variabilidade inter-observador (concordância de 60-80%)
@@ -45,6 +48,7 @@ A **radiografia de tórax** é crucial pois permite visualizar:
 Nas últimas décadas, técnicas de **Deep Learning** revolucionaram o diagnóstico médico por imagem:
 
 **Marcos históricos:**
+
 - **2012:** AlexNet vence ImageNet (erro de 15.3%)
 - **2015:** ResNet supera humanos em classificação de imagens (erro de 3.6%)
 - **2017:** Esteva et al. - CNN para câncer de pele com acurácia de dermatologista
@@ -53,6 +57,7 @@ Nas últimas décadas, técnicas de **Deep Learning** revolucionaram o diagnóst
 - **2023:** LLMs multimodais (GPT-4V, LLaVA) analisam imagens médicas
 
 **Vantagens de sistemas de IA:**
+
 - ✅ Disponibilidade 24/7
 - ✅ Consistência (sem variação inter-observador)
 - ✅ Velocidade (diagnóstico em segundos)
@@ -82,6 +87,7 @@ Radiografia (Input)  →  [CNN - 50 milhões de parâmetros]  →  Output: PNEUM
 ```
 
 **Consequências práticas:**
+
 - ❌ Médicos não confiam em predições sem explicação
 - ❌ Impossível validar se o modelo aprendeu padrões corretos
 - ❌ Dificulta aprovação regulatória (FDA, ANVISA)
@@ -93,6 +99,7 @@ Radiografia (Input)  →  [CNN - 50 milhões de parâmetros]  →  Output: PNEUM
 Técnicas existentes como **Grad-CAM** geram visualizações, mas:
 
 **Grad-CAM:**
+
 ```
 ✅ Mostra "onde" o modelo olhou (heatmap)
 ❌ Não explica "o quê" viu (sem contexto semântico)
@@ -101,13 +108,14 @@ Técnicas existentes como **Grad-CAM** geram visualizações, mas:
 ```
 
 **Exemplo:**
+
 ```
 Input: Radiografia de pneumonia
 Grad-CAM: Heatmap com região inferior direita destacada (vermelho)
 
 Pergunta do médico: "O que isso significa clinicamente?"
 Resposta atual: [silêncio - apenas imagem]
-Resposta desejada: "Consolidação focal no lobo inferior direito, 
+Resposta desejada: "Consolidação focal no lobo inferior direito,
                      consistente com pneumonia bacteriana lobar"
 ```
 
@@ -115,14 +123,15 @@ Resposta desejada: "Consolidação focal no lobo inferior direito,
 
 Revisão sistemática de 87 artigos (2018-2024) sobre IA em diagnóstico de pneumonia:
 
-| Abordagem | Quantidade | Limitações |
-|-----------|------------|------------|
-| CNN pura (sem explicabilidade) | 63 (72%) | Caixa-preta |
-| CNN + Grad-CAM | 18 (21%) | Apenas visualização |
-| CNN + Descrição textual | 4 (5%) | Limitado, regras fixas |
-| **CNN + LLM multimodal** | **2 (2%)** | **Abordagem emergente** |
+| Abordagem                      | Quantidade | Limitações              |
+| ------------------------------ | ---------- | ----------------------- |
+| CNN pura (sem explicabilidade) | 63 (72%)   | Caixa-preta             |
+| CNN + Grad-CAM                 | 18 (21%)   | Apenas visualização     |
+| CNN + Descrição textual        | 4 (5%)     | Limitado, regras fixas  |
+| **CNN + LLM multimodal**       | **2 (2%)** | **Abordagem emergente** |
 
 **Observações:**
+
 - A maioria dos trabalhos foca apenas em **acurácia**
 - Poucos exploram **explicabilidade** de forma prática
 - **LLMs multimodais** são subutilizados em aplicações médicas
@@ -143,29 +152,33 @@ Revisão sistemática de 87 artigos (2018-2024) sobre IA em diagnóstico de pneu
 5. **Responsabilidade legal:** Em caso de erro, rastreabilidade é essencial
 
 **Citação relevante:**
+
 > "Não importa quão preciso seja um modelo de IA. Se os médicos não entendem como ele chegou à conclusão, não será usado na prática clínica."  
 > — Dr. Eric Topol, Scripps Research Institute
 
 ### 3.2 Potencial de LLMs Multimodais
 
 **Large Language Models (LLMs)** revolucionaram processamento de linguagem natural:
+
 - GPT-4: 1.7 trilhões de parâmetros
 - Capacidade de raciocínio complexo
 - Geração de texto coerente e contextualizado
 
 **Modelos multimodais** (visão + linguagem) como LLaVA combinam:
+
 - ✅ Análise de imagens (via CLIP)
 - ✅ Geração de texto (via LLM)
 - ✅ Raciocínio contextual
 - ✅ Explicações em linguagem natural
 
 **Aplicação em medicina:**
+
 ```
 Radiografia + Grad-CAM  →  LLM Multimodal  →  Descrição Clínica
 
-"A radiografia revela consolidação no lobo inferior direito, 
-com padrão de preenchimento alveolar consistente com pneumonia 
-bacteriana. O modelo detectou opacidades focais na região 
+"A radiografia revela consolidação no lobo inferior direito,
+com padrão de preenchimento alveolar consistente com pneumonia
+bacteriana. O modelo detectou opacidades focais na região
 destacada pelo heatmap, indicando processo inflamatório agudo..."
 ```
 
@@ -173,14 +186,14 @@ destacada pelo heatmap, indicando processo inflamatório agudo..."
 
 Nosso trabalho preenche lacunas importantes:
 
-| Aspecto | Estado da Arte | Nossa Solução |
-|---------|----------------|---------------|
-| **Explicabilidade** | Apenas Grad-CAM | Grad-CAM + Descrições LLM |
-| **Multimodalidade** | Modelos separados | Pipeline integrado |
-| **Privacidade** | APIs pagas (GPT-4V) | LLM local (LLaVA 7B) |
-| **Rastreabilidade** | Sem histórico | Banco de dados + busca semântica |
-| **Reprodutibilidade** | Código privado | Open-source + Docker |
-| **Custo** | $0.01-0.05/imagem | Sem custos de API |
+| Aspecto               | Estado da Arte      | Nossa Solução                    |
+| --------------------- | ------------------- | -------------------------------- |
+| **Explicabilidade**   | Apenas Grad-CAM     | Grad-CAM + Descrições LLM        |
+| **Multimodalidade**   | Modelos separados   | Pipeline integrado               |
+| **Privacidade**       | APIs pagas (GPT-4V) | LLM local (LLaVA 7B)             |
+| **Rastreabilidade**   | Sem histórico       | Banco de dados + busca semântica |
+| **Reprodutibilidade** | Código privado      | Open-source + Docker             |
+| **Custo**             | $0.01-0.05/imagem   | Sem custos de API                |
 
 ---
 
@@ -189,6 +202,7 @@ Nosso trabalho preenche lacunas importantes:
 ### 4.1 Objetivo Geral
 
 Desenvolver um **sistema completo de diagnóstico de pneumonia** que integre:
+
 - Redes Neurais Convolucionais (CNN) para classificação
 - Técnicas de explicabilidade visual (Grad-CAM)
 - Large Language Models multimodais (LLaVA) para descrições clínicas
@@ -251,12 +265,14 @@ Este trabalho contribui com:
 ### 5.2 Contribuições Acadêmicas
 
 **Para a comunidade científica:**
+
 - 📄 Metodologia replicável de integração CNN-LLM
 - 📊 Análise de trade-offs (latência vs explicabilidade)
 - 🔬 Avaliação de LLaVA 7B em contexto médico
 - 📚 Dataset de descrições clínicas geradas (para futuro fine-tuning)
 
 **Para a área médica:**
+
 - 🏥 Ferramenta de segunda opinião para pneumonia
 - 📖 Sistema educacional (radiologistas em treinamento)
 - 🌍 Solução escalável para áreas com escassez de especialistas
@@ -264,14 +280,17 @@ Este trabalho contribui com:
 ### 5.3 Impacto Esperado
 
 **Curto prazo:**
+
 - ✅ Demonstração de viabilidade técnica de CNN + LLM multimodal
 - ✅ Baseline open-source para trabalhos futuros
 
 **Médio prazo:**
+
 - 🔬 Validação clínica com radiologistas
 - 📈 Expansão para outras patologias (tuberculose, COVID-19)
 
 **Longo prazo:**
+
 - 🌐 Deployment em hospitais e clínicas (após aprovação regulatória)
 - 🤖 Fine-tuning de LLM com dataset médico especializado
 - 📱 Aplicativo mobile para triagem em áreas remotas
@@ -311,6 +330,7 @@ paper/
 ### Fluxo de Leitura Recomendado
 
 **Para compreensão completa:**
+
 1. Leia este documento (01) para contextualizar
 2. Estude fundamentos teóricos (02)
 3. Compreenda arquitetura geral (03)
@@ -320,6 +340,7 @@ paper/
 7. Consulte código-fonte (07) conforme necessário
 
 **Para monografia/TCC:**
+
 - **Introdução:** Use seção 1 e 2 deste documento
 - **Referencial teórico:** Documento 02
 - **Metodologia:** Documentos 03, 04, 05
@@ -410,12 +431,14 @@ Total: ~8 semanas
 **Link:** https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia
 
 **Estatísticas:**
+
 - Total: 5,863 imagens JPEG
 - Training: 5,216 (1,341 NORMAL + 3,875 PNEUMONIA)
 - Validation: 16 (8 NORMAL + 8 PNEUMONIA)
 - Test: 624 (234 NORMAL + 390 PNEUMONIA)
 
 **Características:**
+
 - Resolução: ~1000x1000 pixels (variável)
 - Formato: Grayscale (1 canal)
 - Fonte: Guangzhou Women and Children's Medical Center
@@ -437,11 +460,12 @@ Total: ~8 semanas
 Todos os diagnósticos gerados incluem:
 
 ```
-⚠️ Disclaimer: This AI analysis is for educational purposes only. 
+⚠️ Disclaimer: This AI analysis is for educational purposes only.
 Always consult qualified healthcare professionals for medical decisions.
 ```
 
 **Justificativa:**
+
 - Sistema não substitui médicos
 - Serve como ferramenta de suporte à decisão
 - Requer validação clínica antes de uso em produção
@@ -467,6 +491,7 @@ Este trabalho propõe uma abordagem inovadora para diagnóstico de pneumonia que
 6. **Reprodutibilidade** (open-source + Docker)
 
 Nos próximos documentos, detalharemos:
+
 - Fundamentos teóricos (documento 02)
 - Arquitetura completa (documento 03)
 - Implementação LLM (documento 04) ⭐
@@ -492,4 +517,4 @@ Nos próximos documentos, detalharemos:
 ---
 
 **Documento elaborado para TCC/Monografia - PneumoFinder v2.0**  
-**Última atualização:** Dezembro 2024
+**Última atualização:** Dezembro 2026

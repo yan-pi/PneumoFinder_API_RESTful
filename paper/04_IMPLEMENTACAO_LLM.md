@@ -1,6 +1,7 @@
 # 04 - Implementação da Integração com LLM Multimodal
 
 ## Sumário
+
 - [1. Visão Geral](#1-visão-geral)
 - [2. Arquitetura LLaVA](#2-arquitetura-llava)
 - [3. Configuração do Ambiente](#3-configuração-do-ambiente)
@@ -21,6 +22,7 @@ Redes Neurais Convolucionais (CNNs) para classificação médica enfrentam um pr
 ### 1.2 Solução Proposta
 
 Integração de um **Large Language Model (LLM) multimodal** (LLaVA 7B) para:
+
 - ✅ Gerar descrições clínicas em linguagem natural
 - ✅ Interpretar visualizações Grad-CAM
 - ✅ Contextualizar diagnósticos com terminologia médica
@@ -30,44 +32,44 @@ Integração de um **Large Language Model (LLM) multimodal** (LLaVA 7B) para:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Pipeline Multimodal                       │
+│                    Pipeline Multimodal                      │
 └─────────────────────────────────────────────────────────────┘
-                                                                
-Radiografia (Input)                                            
-      │                                                         
-      ▼                                                         
-┌─────────────┐                                                
-│ CNN Model   │ → Predição: PNEUMONIA (87.3%)                 
-│ (ResNet50)  │                                                
-└──────┬──────┘                                                
-       │                                                        
-       ▼                                                        
-┌─────────────┐                                                
-│  Grad-CAM   │ → Heatmap + Overlay                           
-│Visualization│                                                
-└──────┬──────┘                                                
-       │                                                        
-       ▼                                                        
+
+Radiografia (Input)
+      │
+      ▼
+┌─────────────┐
+│ CNN Model   │ → Predição: PNEUMONIA (87.3%)
+│ (ResNet50)  │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Grad-CAM   │ → Heatmap + Overlay
+│Visualization│
+└──────┬──────┘
+       │
+       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │            LLM Multimodal (LLaVA 7B via Ollama)             │
-│                                                              │
-│  Inputs:                                                     │
+│                                                             │
+│  Inputs:                                                    │
 │  • Radiografia com overlay Grad-CAM (imagem)                │
-│  • Prompt estruturado com contexto:                          │
-│    - Diagnóstico CNN: PNEUMONIA                              │
-│    - Confiança: 87.3%                                        │
-│    - Instruções para análise médica                          │
-│                                                              │
-│  Output:                                                     │
+│  • Prompt estruturado com contexto:                         │
+│    - Diagnóstico CNN: PNEUMONIA                             │
+│    - Confiança: 87.3%                                       │
+│    - Instruções para análise médica                         │
+│                                                             │
+│  Output:                                                    │
 │  "The image shows a chest X-ray with an overlay of a        │
-│   heatmap indicating areas of interest for pneumonia         │
-│   detection. The highlighted regions reveal potential lung   │
-│   abnormalities, likely infiltrates or opacities,            │
-│   suggesting consolidations indicative of pneumonia..."      │
+│   heatmap indicating areas of interest for pneumonia        │
+│   detection. The highlighted regions reveal potential lung  │
+│   abnormalities, likely infiltrates or opacities,           │
+│   suggesting consolidations indicative of pneumonia..."     │
 └─────────────────────────────────────────────────────────────┘
-       │                                                        
-       ▼                                                        
-  Descrição Clínica + Disclaimer → JSON Response              
+       │
+       ▼
+  Descrição Clínica + Disclaimer → JSON Response
 ```
 
 ---
@@ -77,18 +79,19 @@ Radiografia (Input)
 ### 2.1 O que é LLaVA?
 
 **LLaVA** (Large Language and Vision Assistant) é um modelo multimodal open-source que combina:
+
 - **Encoder visual:** CLIP (Contrastive Language-Image Pretraining)
 - **LLM textual:** Vicuna 7B (baseado em LLaMA)
 
 ### 2.2 Por que LLaVA 7B?
 
-| Critério | Justificativa |
-|----------|---------------|
-| **Multimodalidade** | Processa imagem + texto simultaneamente |
-| **Tamanho (7B parâmetros)** | Roda localmente em hardware moderado (16GB RAM) |
-| **Open-source** | Sem custos de API, privacidade dos dados médicos |
-| **Performance** | Comparável a GPT-4V em tarefas visuais |
-| **Latência** | ~10-15s por descrição (aceitável para diagnóstico) |
+| Critério                    | Justificativa                                      |
+| --------------------------- | -------------------------------------------------- |
+| **Multimodalidade**         | Processa imagem + texto simultaneamente            |
+| **Tamanho (7B parâmetros)** | Roda localmente em hardware moderado (16GB RAM)    |
+| **Open-source**             | Sem custos de API, privacidade dos dados médicos   |
+| **Performance**             | Comparável a GPT-4V em tarefas visuais             |
+| **Latência**                | ~10-15s por descrição (aceitável para diagnóstico) |
 
 ### 2.3 Arquitetura Interna
 
@@ -143,12 +146,12 @@ O sistema implementa verificação automática:
 # src/core/clinical_description.py (linhas 102-122)
 
 def check_ollama_availability(
-    ollama_host: str = "http://localhost:11434", 
+    ollama_host: str = "http://localhost:11434",
     model_name: str = "llava:7b"
 ) -> bool:
     """
     Verifica se o serviço Ollama está rodando e se o modelo está disponível.
-    
+
     Returns:
         True se serviço e modelo estão disponíveis
     """
@@ -156,7 +159,7 @@ def check_ollama_availability(
         # Consulta lista de modelos instalados
         response = requests.get(f"{ollama_host}/api/tags", timeout=5)
         response.raise_for_status()
-        
+
         # Verifica se llava:7b está na lista
         models = response.json().get("models", [])
         return any(model_name in model.get("name", "") for model in models)
@@ -165,6 +168,7 @@ def check_ollama_availability(
 ```
 
 **Casos de teste:**
+
 - ✅ Ollama rodando + modelo instalado → Retorna `True`
 - ❌ Ollama offline → Retorna `False` (fallback será usado)
 - ❌ Modelo não instalado → Retorna `False`
@@ -202,14 +206,14 @@ Important Guidelines:
 
 ### 4.2 Design Rationale
 
-| Elemento | Objetivo | Exemplo |
-|----------|----------|---------|
-| **Persona** | Estabelecer contexto médico | "You are a medical AI assistant..." |
-| **Context** | Fornecer dados CNN | "Diagnosis: PNEUMONIA, Confidence: 87%" |
-| **Task** | Delimitar escopo | "Provide clinical description in 2-3 sentences" |
-| **Guidelines** | Evitar alucinações | "Base response ONLY on visual evidence" |
-| **Terminology** | Garantir linguagem profissional | "Use terms like infiltrates, consolidations" |
-| **Safety** | Disclaimer legal | "Do NOT provide treatment recommendations" |
+| Elemento        | Objetivo                        | Exemplo                                         |
+| --------------- | ------------------------------- | ----------------------------------------------- |
+| **Persona**     | Estabelecer contexto médico     | "You are a medical AI assistant..."             |
+| **Context**     | Fornecer dados CNN              | "Diagnosis: PNEUMONIA, Confidence: 87%"         |
+| **Task**        | Delimitar escopo                | "Provide clinical description in 2-3 sentences" |
+| **Guidelines**  | Evitar alucinações              | "Base response ONLY on visual evidence"         |
+| **Terminology** | Garantir linguagem profissional | "Use terms like infiltrates, consolidations"    |
+| **Safety**      | Disclaimer legal                | "Do NOT provide treatment recommendations"      |
 
 ### 4.3 Carregamento Dinâmico
 
@@ -226,12 +230,13 @@ def load_medical_prompt_template(
     if os.path.exists(prompt_path):
         with open(prompt_path) as f:
             return f.read()
-    
+
     # Fallback hardcoded (emergência)
     return """You are a medical AI assistant..."""
 ```
 
 **Vantagens:**
+
 - ✅ Permite ajuste de prompts sem recompilar código
 - ✅ Facilita A/B testing de diferentes formulações
 - ✅ Fallback garante funcionamento mesmo sem arquivo
@@ -249,6 +254,7 @@ prompt = template.format(
 ```
 
 **Exemplo de prompt formatado:**
+
 ```
 You are a medical AI assistant analyzing chest X-ray images for pneumonia detection.
 
@@ -275,10 +281,10 @@ LLaVA requer imagens em **base64** como parte do payload JSON:
 def encode_image_to_base64(image_path: str) -> str:
     """
     Converte arquivo de imagem para string base64.
-    
+
     Args:
         image_path: Caminho para arquivo de imagem
-        
+
     Returns:
         String base64 da imagem
     """
@@ -287,11 +293,13 @@ def encode_image_to_base64(image_path: str) -> str:
 ```
 
 **Fluxo:**
+
 1. Lê arquivo de imagem em modo binário (`rb`)
 2. Codifica bytes em base64 (padrão RFC 4648)
 3. Decodifica bytes para string UTF-8
 
 **Exemplo:**
+
 ```python
 # Input: "temp/overlay_abc123.png" (250 KB)
 # Output: "iVBORw0KGgoAAAANSUhEUgAAA..." (334 KB string)
@@ -314,7 +322,7 @@ def call_ollama_api(
 ) -> str | None:
     """
     Chama API Ollama para inferência multimodal.
-    
+
     Args:
         prompt: Prompt de texto para o LLM
         image_base64: Imagem codificada em base64
@@ -322,13 +330,13 @@ def call_ollama_api(
         ollama_host: Host da API Ollama
         max_tokens: Máximo de tokens a gerar
         temperature: Temperatura de amostragem (0.0-1.0)
-        
+
     Returns:
         Resposta de texto gerada ou None se erro
     """
     # URL do endpoint de geração
     api_url = f"{ollama_host}/api/generate"
-    
+
     # Monta payload JSON
     payload = {
         "model": model_name,          # "llava:7b"
@@ -340,16 +348,16 @@ def call_ollama_api(
             "num_predict": max_tokens,      # Limite de tokens
         },
     }
-    
+
     try:
         # POST request com timeout de 60s
         response = requests.post(api_url, json=payload, timeout=60)
         response.raise_for_status()  # Levanta exceção se status != 2xx
-        
+
         # Parse JSON response
         result = response.json()
         return result.get("response", "").strip()
-        
+
     except requests.exceptions.RequestException as e:
         print(f"Error calling Ollama API: {e}")
         return None
@@ -360,20 +368,22 @@ def call_ollama_api(
 
 ### 5.3 Parâmetros de Inferência
 
-| Parâmetro | Valor | Justificativa |
-|-----------|-------|---------------|
-| **temperature** | 0.3 | Respostas mais determinísticas e consistentes (médico) |
-| **max_tokens** | 500 | Suficiente para 2-3 parágrafos (~100-150 palavras) |
-| **stream** | False | Aguarda resposta completa (mais simples de processar) |
-| **timeout** | 60s | Tempo razoável para inferência local (7B params) |
+| Parâmetro       | Valor | Justificativa                                          |
+| --------------- | ----- | ------------------------------------------------------ |
+| **temperature** | 0.3   | Respostas mais determinísticas e consistentes (médico) |
+| **max_tokens**  | 500   | Suficiente para 2-3 parágrafos (~100-150 palavras)     |
+| **stream**      | False | Aguarda resposta completa (mais simples de processar)  |
+| **timeout**     | 60s   | Tempo razoável para inferência local (7B params)       |
 
 **Trade-offs de `temperature`:**
+
 - **0.0-0.3:** Respostas mais factuais e consistentes ✅ (escolhido)
 - **0.7-1.0:** Respostas mais criativas e variadas ❌ (não desejado em medicina)
 
 ### 5.4 Formato da Resposta
 
 **Request:**
+
 ```json
 {
   "model": "llava:7b",
@@ -388,6 +398,7 @@ def call_ollama_api(
 ```
 
 **Response:**
+
 ```json
 {
   "model": "llava:7b",
@@ -423,7 +434,7 @@ def generate_clinical_description(
 ) -> str:
     """
     Gera descrição clínica usando LLM ou fallback.
-    
+
     Args:
         diagnosis: Resultado do diagnóstico (PNEUMONIA ou NORMAL)
         confidence: Confiança do modelo (0-1)
@@ -432,7 +443,7 @@ def generate_clinical_description(
         prompt_template_path: Caminho para template de prompt
         ollama_host: Host da API Ollama
         ollama_model: Nome do modelo Ollama
-        
+
     Returns:
         Descrição clínica com disclaimer
     """
@@ -441,29 +452,29 @@ def generate_clinical_description(
         # 1. Carrega template de prompt
         template = load_medical_prompt_template(prompt_template_path)
         prompt = template.format(
-            class_name=diagnosis, 
+            class_name=diagnosis,
             confidence=f"{confidence * 100:.1f}"
         )
-        
+
         # 2. Escolhe imagem (preferência: overlay com Grad-CAM)
         image_path = overlay_image_path if overlay_image_path else original_image_path
         image_b64 = encode_image_to_base64(image_path)
-        
+
         # 3. Chama LLM
         llm_response = call_ollama_api(
-            prompt, 
-            image_b64, 
-            model_name=ollama_model, 
+            prompt,
+            image_b64,
+            model_name=ollama_model,
             ollama_host=ollama_host
         )
-        
+
         # 4. Se sucesso, retorna com disclaimer
         if llm_response:
             return add_medical_disclaimer(llm_response, confidence)
-    
+
     except Exception as e:
         print(f"Error generating LLM description: {e}")
-    
+
     # 5. Fallback se LLM falhar
     fallback = generate_fallback_description(diagnosis, confidence)
     return add_medical_disclaimer(fallback, confidence)
@@ -537,11 +548,11 @@ O sistema implementa **degradação graciosa**: se o LLM falhar, gera uma descri
 def generate_fallback_description(diagnosis: str, confidence: float) -> str:
     """
     Gera descrição simples quando LLM está indisponível.
-    
+
     Args:
         diagnosis: PNEUMONIA ou NORMAL
         confidence: Confiança do modelo (0-1)
-        
+
     Returns:
         Texto de fallback
     """
@@ -559,17 +570,18 @@ def generate_fallback_description(diagnosis: str, confidence: float) -> str:
             f"{confidence * 100:.1f}% confidence. "
             "No significant abnormalities were detected in the analyzed regions."
         )
-    
+
     return description
 ```
 
 **Exemplo de saída fallback (PNEUMONIA):**
+
 ```
-The CNN model detected signs of pneumonia with 87.3% confidence. 
-The Grad-CAM visualization highlights regions of the lung that influenced this diagnosis. 
+The CNN model detected signs of pneumonia with 87.3% confidence.
+The Grad-CAM visualization highlights regions of the lung that influenced this diagnosis.
 Further clinical evaluation and additional imaging may be warranted.
 
-⚠️ Disclaimer: This AI analysis is for educational purposes only. 
+⚠️ Disclaimer: This AI analysis is for educational purposes only.
 Always consult qualified healthcare professionals for medical decisions.
 ```
 
@@ -583,11 +595,11 @@ Todas as descrições incluem disclaimer legal:
 def add_medical_disclaimer(description: str, confidence: float) -> str:
     """
     Adiciona disclaimer médico à descrição.
-    
+
     Args:
         description: Texto da descrição clínica
         confidence: Confiança do modelo (0-1)
-        
+
     Returns:
         Descrição com disclaimer
     """
@@ -595,32 +607,34 @@ def add_medical_disclaimer(description: str, confidence: float) -> str:
         "\n\n⚠️ Disclaimer: This AI analysis is for educational purposes only. "
         "Always consult qualified healthcare professionals for medical decisions."
     )
-    
+
     # Nota adicional se confiança baixa
     if confidence < 0.7:
         confidence_note = (
             "\n\nNote: Model confidence is moderate. Manual review recommended."
         )
         description += confidence_note
-    
+
     return description + disclaimer
 ```
 
 **Casos:**
+
 - Confiança ≥ 70% → Disclaimer padrão
 - Confiança < 70% → Disclaimer + nota de revisão manual
 
 ### 7.3 Cenários de Erro
 
-| Erro | Causa | Tratamento |
-|------|-------|------------|
-| **Timeout (60s)** | Ollama lento/sobrecarregado | Fallback description |
-| **Connection refused** | Ollama offline | Fallback description |
-| **Model not found** | LLaVA não instalado | Fallback description |
-| **Invalid response** | JSON malformado | Fallback description |
-| **Empty response** | LLM retornou texto vazio | Fallback description |
+| Erro                   | Causa                       | Tratamento           |
+| ---------------------- | --------------------------- | -------------------- |
+| **Timeout (60s)**      | Ollama lento/sobrecarregado | Fallback description |
+| **Connection refused** | Ollama offline              | Fallback description |
+| **Model not found**    | LLaVA não instalado         | Fallback description |
+| **Invalid response**   | JSON malformado             | Fallback description |
+| **Empty response**     | LLM retornou texto vazio    | Fallback description |
 
 **Logs de debug:**
+
 ```python
 print(f"Error calling Ollama API: {e}")  # Para troubleshooting
 ```
@@ -632,6 +646,7 @@ print(f"Error calling Ollama API: {e}")  # Para troubleshooting
 ### 8.1 Performance
 
 **Medições reais:**
+
 ```
 Endpoint /diagnose (sem LLM):
 - Latência média: 2.5s
@@ -665,6 +680,7 @@ Deduplicação via SHA-256 evita reprocessamento:
 #### B. Processamento Assíncrono (Recomendado)
 
 Para produção, considerar:
+
 ```python
 # Opção 1: Retornar diagnosis_id imediatamente
 response = {"diagnosis_id": 42, "status": "processing"}
@@ -679,6 +695,7 @@ def generate_description_async(diagnosis_id):
 #### C. Quantização do Modelo (Futuro)
 
 LLaVA 7B em FP16 (~4.7GB) pode ser reduzido:
+
 - **4-bit quantization:** ~2.4GB, 2x mais rápido
 - **Trade-off:** Pequena perda de qualidade (~5%)
 
@@ -690,11 +707,13 @@ ollama pull llava:7b-q4
 ### 8.3 Escalabilidade
 
 **Arquitetura atual:**
+
 - ✅ Single instance: 1-5 req/min
 - ✅ Docker: Isolamento e portabilidade
 - ❌ Horizontal scaling: Limitado (Ollama stateful)
 
 **Para escala (100+ req/min):**
+
 1. **GPU inference:** NVIDIA T4/A10 (4x mais rápido)
 2. **Ollama cluster:** Load balancer + múltiplas instâncias
 3. **API externa:** Alternativa: Replicate, Together.ai (custos)
@@ -703,14 +722,15 @@ ollama pull llava:7b-q4
 
 **Avaliação qualitativa (N=50 casos):**
 
-| Métrica | Score |
-|---------|-------|
-| Acurácia médica | 92% correto |
-| Uso de terminologia adequada | 88% |
-| Localização anatômica correta | 76% |
-| Consistência entre casos similares | 85% |
+| Métrica                            | Score       |
+| ---------------------------------- | ----------- |
+| Acurácia médica                    | 92% correto |
+| Uso de terminologia adequada       | 88%         |
+| Localização anatômica correta      | 76%         |
+| Consistência entre casos similares | 85%         |
 
 **Limitações identificadas:**
+
 - ❌ Ocasionalmente confunde lateralidade (direita/esquerda)
 - ❌ Pode ser vago em casos ambíguos (confiança 50-70%)
 - ❌ Não detecta múltiplas patologias (foco em pneumonia)
@@ -718,12 +738,14 @@ ollama pull llava:7b-q4
 ### 8.5 Segurança e Privacidade
 
 **Vantagens do deployment local:**
+
 - ✅ Dados médicos nunca saem do servidor
 - ✅ Conformidade com LGPD/HIPAA
 - ✅ Sem custos variáveis de API
 - ✅ Controle total sobre o modelo
 
 **Desvantagens:**
+
 - ❌ Requer hardware dedicado
 - ❌ Manutenção de infraestrutura
 - ❌ Atualizações manuais do modelo
@@ -735,11 +757,13 @@ ollama pull llava:7b-q4
 ### 9.1 Caso Real: Pneumonia Bacteriana
 
 **Input:**
+
 - Imagem: `person74_bacteria_362.jpeg`
 - Diagnóstico CNN: PNEUMONIA
 - Confiança: 99.99%
 
 **Prompt gerado:**
+
 ```
 You are a medical AI assistant analyzing chest X-ray images for pneumonia detection.
 
@@ -753,24 +777,26 @@ Provide a clinical description of the findings in 2-3 sentences...
 ```
 
 **Resposta LLaVA:**
+
 ```
-The image shows a chest X-ray with an overlay of a heatmap indicating 
-areas of interest for pneumonia detection. The highlighted regions reveal 
-potential lung abnormalities, which are likely to be infiltrates or opacities, 
-suggesting the presence of consolidations or a pattern indicative of pneumonia. 
-Based on the AI diagnosis and visual analysis, the model has identified an area 
-of concern with a confidence level of 100.0%. This could potentially indicate a 
-focal or localized form of pneumonia. However, without additional clinical 
-information such as patient history, symptoms, and other diagnostic tests, 
-it is not possible to provide a definitive diagnosis or treatment recommendations. 
-Further evaluation by a healthcare provider would be necessary for accurate 
+The image shows a chest X-ray with an overlay of a heatmap indicating
+areas of interest for pneumonia detection. The highlighted regions reveal
+potential lung abnormalities, which are likely to be infiltrates or opacities,
+suggesting the presence of consolidations or a pattern indicative of pneumonia.
+Based on the AI diagnosis and visual analysis, the model has identified an area
+of concern with a confidence level of 100.0%. This could potentially indicate a
+focal or localized form of pneumonia. However, without additional clinical
+information such as patient history, symptoms, and other diagnostic tests,
+it is not possible to provide a definitive diagnosis or treatment recommendations.
+Further evaluation by a healthcare provider would be necessary for accurate
 diagnosis and appropriate management.
 
-⚠️ Disclaimer: This AI analysis is for educational purposes only. 
+⚠️ Disclaimer: This AI analysis is for educational purposes only.
 Always consult qualified healthcare professionals for medical decisions.
 ```
 
 **JSON Response da API:**
+
 ```json
 {
   "diagnosis_id": 2,
@@ -822,4 +848,4 @@ Always consult qualified healthcare professionals for medical decisions.
 ---
 
 **Documento gerado para TCC - PneumoFinder v2.0**  
-**Última atualização:** Dezembro 2024
+**Última atualização:** Dezembro 2025

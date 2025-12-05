@@ -1,6 +1,7 @@
 # 02 - Fundamentos Teóricos
 
 ## Sumário
+
 - [1. Redes Neurais Convolucionais](#1-redes-neurais-convolucionais)
 - [2. Transfer Learning e ResNet50](#2-transfer-learning-e-resnet50)
 - [3. Técnicas de Explicabilidade](#3-técnicas-de-explicabilidade)
@@ -36,6 +37,7 @@ Output: [NORMAL, PNEUMONIA]
 ```
 
 **Operações principais:**
+
 - **Convolução:** Filtros deslizantes detectam padrões locais
 - **Pooling:** Max/Average pooling reduz dimensões (invariância a translação)
 - **Ativação (ReLU):** Não-linearidade f(x) = max(0, x)
@@ -44,12 +46,14 @@ Output: [NORMAL, PNEUMONIA]
 ### 1.2 Aplicação em Imagens Médicas
 
 **Vantagens de CNNs para radiografias:**
+
 - ✅ Aprende features hierárquicas automaticamente
 - ✅ Invariante a pequenas translações/rotações
 - ✅ Compartilhamento de pesos (eficiência)
 - ✅ Estado-da-arte em classificação de imagens
 
 **Desafios:**
+
 - Dataset médico limitado (milhares vs milhões de imagens gerais)
 - Necessidade de aumento de dados (data augmentation)
 - Overfitting em datasets pequenos
@@ -79,6 +83,7 @@ ImageNet (1.4M imagens)  →  ResNet50 pré-treinado
 ```
 
 **Vantagens:**
+
 - Convergência mais rápida (menos épocas)
 - Melhor performance com poucos dados
 - Features genéricas (bordas, texturas) já aprendidas
@@ -114,11 +119,13 @@ Inovação principal: **Conexões residuais** (skip connections)
 ```
 
 **Benefícios:**
+
 - Resolve problema de vanishing gradient
 - Permite treinar redes muito profundas (50+ camadas)
 - Melhor flow de gradientes durante backpropagation
 
 **ResNet50 no PneumoFinder:**
+
 ```python
 # Nossa implementação
 from tensorflow.keras.applications import ResNet50
@@ -148,12 +155,12 @@ CNNs são opacas: milhões de parâmetros tornam impossível interpretar decisõ
 
 **Técnicas de explicabilidade existentes:**
 
-| Técnica | Tipo | Vantagens | Limitações |
-|---------|------|-----------|------------|
-| **Saliency Maps** | Gradient-based | Simples | Ruído visual |
-| **Occlusion** | Perturbation-based | Intuitivo | Computacionalmente caro |
-| **Grad-CAM** | Gradient-weighted | Preciso, eficiente | Apenas visualização |
-| **LRP** | Decomposition | Detalhado | Complexo |
+| Técnica           | Tipo               | Vantagens          | Limitações              |
+| ----------------- | ------------------ | ------------------ | ----------------------- |
+| **Saliency Maps** | Gradient-based     | Simples            | Ruído visual            |
+| **Occlusion**     | Perturbation-based | Intuitivo          | Computacionalmente caro |
+| **Grad-CAM**      | Gradient-weighted  | Preciso, eficiente | Apenas visualização     |
+| **LRP**           | Decomposition      | Detalhado          | Complexo                |
 
 ### 3.2 Grad-CAM (Gradient-weighted Class Activation Mapping)
 
@@ -168,23 +175,23 @@ CNNs são opacas: milhões de parâmetros tornam impossível interpretar decisõ
 def gradcam(model, image, target_class):
     # 1. Forward pass
     conv_output, predictions = model(image)
-    
+
     # 2. Backward pass para classe alvo
     loss = predictions[target_class]
     gradients = compute_gradients(loss, conv_output)
-    
+
     # 3. Pesos = média global dos gradientes
     weights = global_average_pool(gradients)
-    
+
     # 4. Combinação linear das feature maps
     heatmap = sum(weights[i] * conv_output[i] for i in range(channels))
-    
+
     # 5. ReLU (apenas ativações positivas)
     heatmap = relu(heatmap)
-    
+
     # 6. Normaliza para [0, 1]
     heatmap = normalize(heatmap)
-    
+
     return heatmap
 ```
 
@@ -201,6 +208,7 @@ Radiografia     Regiões ativas   Sobreposição
 ```
 
 **Nossa implementação:**
+
 - Camada alvo: `conv5_block3_3_conv` (última camada convolucional do ResNet50)
 - Upsampling: Bilinear para 224x224
 - Colormap: Vermelho (alta ativação) → Transparente (baixa ativação)
@@ -209,7 +217,7 @@ Radiografia     Regiões ativas   Sobreposição
 
 ❌ **Apenas visual:** Não fornece explicação textual  
 ❌ **Requer interpretação:** Médicos ainda precisam analisar heatmap  
-❌ **Sem contexto:** Não relaciona com terminologia médica  
+❌ **Sem contexto:** Não relaciona com terminologia médica
 
 **Solução:** Integração com LLM multimodal para gerar descrições clínicas.
 
@@ -220,6 +228,7 @@ Radiografia     Regiões ativas   Sobreposição
 ### 4.1 Evolução dos LLMs
 
 **Timeline:**
+
 - **2018:** BERT (Google) - 340M parâmetros
 - **2020:** GPT-3 (OpenAI) - 175B parâmetros
 - **2022:** GPT-4 (OpenAI) - ~1.7T parâmetros (estimativa)
@@ -231,6 +240,7 @@ Radiografia     Regiões ativas   Sobreposição
 **CLIP** (Contrastive Language-Image Pretraining) - OpenAI (2021)
 
 **Treinamento contrastivo:**
+
 ```
 Batch de 32,768 pares (imagem, texto)
         ↓
@@ -297,18 +307,21 @@ Image (224x224)                    Text Prompt
 ```
 
 **Treinamento:**
+
 1. **Stage 1:** Congela CLIP e Vicuna, treina apenas projeção (W)
    - Dataset: 595K pares (imagem, legenda) do LAION
 2. **Stage 2:** Fine-tune end-to-end com instruções multimodais
    - Dataset: 150K instruções geradas com GPT-4
 
 **Vantagens sobre GPT-4V:**
+
 - ✅ Open-source (pesos públicos)
 - ✅ Roda localmente (sem custos de API)
 - ✅ Privacidade (dados não saem do servidor)
 - ✅ Customizável (fine-tuning possível)
 
 **Trade-offs:**
+
 - ❌ Menor que GPT-4 (7B vs ~1.7T parâmetros)
 - ❌ Performance ligeiramente inferior (~90% da GPT-4V)
 - ❌ Latência maior (10-15s vs 2-3s)
@@ -329,6 +342,7 @@ ollama serve  # Roda na porta 11434
 ```
 
 **API REST simples:**
+
 ```bash
 curl http://localhost:11434/api/generate \
   -d '{
@@ -355,6 +369,7 @@ Vetor: [0.23, -0.45, 0.12, ..., 0.67] (384 dimensões)
 ```
 
 **Propriedade matemática:**
+
 ```
 similarity("pneumonia", "infiltrado") > similarity("pneumonia", "fratura")
 ```
@@ -362,12 +377,14 @@ similarity("pneumonia", "infiltrado") > similarity("pneumonia", "fratura")
 ### 5.2 Sentence-Transformers
 
 **Modelo:** `all-MiniLM-L6-v2`
+
 - Baseado em BERT (Bidirectional Encoder Representations from Transformers)
 - 22M parâmetros (leve e rápido)
 - 384 dimensões de saída
 - Treinado com 1B+ pares de sentenças
 
 **Geração de embeddings:**
+
 ```python
 from sentence_transformers import SentenceTransformer
 
@@ -382,6 +399,7 @@ embedding = model.encode(text)  # shape: (384,)
 **ChromaDB** é um banco de dados vetorial otimizado para busca semântica.
 
 **Índice HNSW** (Hierarchical Navigable Small World):
+
 ```
 ┌─────────────────────────────────────────┐
 │     HNSW Index Structure                │
@@ -396,12 +414,14 @@ Layer 0:  ○○○○○○○○○       Dense (todos os vetores)
 ```
 
 **Vantagens:**
+
 - ✅ Busca em O(log N) (sub-linear)
 - ✅ Alta recall (>95% dos k-vizinhos mais próximos)
 - ✅ Baixo uso de memória (compressão HNSW)
 
 **Métricas de similaridade:**
-- **Cosine:** cos(θ) = (A · B) / (||A|| ||B||)  [Usado no PneumoFinder]
+
+- **Cosine:** cos(θ) = (A · B) / (||A|| ||B||) [Usado no PneumoFinder]
 - **Euclidean:** ||A - B||
 - **Dot product:** A · B
 
@@ -424,6 +444,7 @@ Query: "Infiltrados no lobo inferior direito"
 ```
 
 **Exemplo real:**
+
 ```python
 # Query
 query = "consolidation in lower right lung field"
@@ -497,13 +518,13 @@ Este trabalho combina múltiplas técnicas estado-da-arte:
 
 ### 7.1 Comparação com Estado-da-Arte
 
-| Trabalho | CNN | Explicabilidade | LLM | Busca Semântica | Open-Source |
-|----------|-----|-----------------|-----|-----------------|-------------|
-| **Rajpurkar et al. (2018) CheXNet** | ✅ DenseNet | ❌ | ❌ | ❌ | ❌ |
-| **Irvin et al. (2019) CheXpert** | ✅ DenseNet | ❌ | ❌ | ❌ | ✅ (Dados) |
-| **Selvaraju et al. (2017)** | ✅ VGG | ✅ Grad-CAM | ❌ | ❌ | ✅ |
-| **Liu et al. (2023) LLaVA** | N/A | N/A | ✅ Multimodal | ❌ | ✅ |
-| **PneumoFinder (Este trabalho)** | ✅ ResNet50 | ✅ Grad-CAM | ✅ LLaVA 7B | ✅ ChromaDB | ✅ Completo |
+| Trabalho                            | CNN         | Explicabilidade | LLM           | Busca Semântica | Open-Source |
+| ----------------------------------- | ----------- | --------------- | ------------- | --------------- | ----------- |
+| **Rajpurkar et al. (2018) CheXNet** | ✅ DenseNet | ❌              | ❌            | ❌              | ❌          |
+| **Irvin et al. (2019) CheXpert**    | ✅ DenseNet | ❌              | ❌            | ❌              | ✅ (Dados)  |
+| **Selvaraju et al. (2017)**         | ✅ VGG      | ✅ Grad-CAM     | ❌            | ❌              | ✅          |
+| **Liu et al. (2023) LLaVA**         | N/A         | N/A             | ✅ Multimodal | ❌              | ✅          |
+| **PneumoFinder (Este trabalho)**    | ✅ ResNet50 | ✅ Grad-CAM     | ✅ LLaVA 7B   | ✅ ChromaDB     | ✅ Completo |
 
 ### 7.2 Diferenciais
 
@@ -533,4 +554,4 @@ Este trabalho combina múltiplas técnicas estado-da-arte:
 ---
 
 **Documento elaborado para TCC/Monografia - PneumoFinder v2.0**  
-**Última atualização:** Dezembro 2024
+**Última atualização:** Dezembro 2026

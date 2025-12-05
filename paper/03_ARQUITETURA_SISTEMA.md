@@ -1,6 +1,7 @@
 # 03 - Arquitetura do Sistema
 
 ## Sumário
+
 - [Visão Geral](#visão-geral)
 - [Arquitetura em Camadas](#arquitetura-em-camadas)
 - [API RESTful com Flask](#api-restful-com-flask)
@@ -27,15 +28,15 @@ O PneumoFinder foi projetado como uma **API RESTful** modular seguindo princípi
 
 ### Stack Tecnológico
 
-| Camada | Tecnologia | Versão | Função |
-|--------|-----------|--------|--------|
-| **Framework Web** | Flask | 3.1.0 | Servidor HTTP e roteamento |
-| **WSGI** | Werkzeug | 3.x | Interface WSGI (dev server) |
-| **CORS** | Flask-CORS | - | Cross-Origin Resource Sharing |
-| **Deep Learning** | TensorFlow | 2.19.0 | Inferência CNN |
-| **Computer Vision** | OpenCV | 4.x | Processamento de imagens |
-| **LLM** | Ollama + LLaVA | 7B | Descrições clínicas |
-| **Containerização** | Docker + Docker Compose | - | Deploy e orquestração |
+| Camada              | Tecnologia              | Versão | Função                        |
+| ------------------- | ----------------------- | ------ | ----------------------------- |
+| **Framework Web**   | Flask                   | 3.1.0  | Servidor HTTP e roteamento    |
+| **WSGI**            | Werkzeug                | 3.x    | Interface WSGI (dev server)   |
+| **CORS**            | Flask-CORS              | -      | Cross-Origin Resource Sharing |
+| **Deep Learning**   | TensorFlow              | 2.19.0 | Inferência CNN                |
+| **Computer Vision** | OpenCV                  | 4.x    | Processamento de imagens      |
+| **LLM**             | Ollama + LLaVA          | 7B     | Descrições clínicas           |
+| **Containerização** | Docker + Docker Compose | -      | Deploy e orquestração         |
 
 ---
 
@@ -43,7 +44,7 @@ O PneumoFinder foi projetado como uma **API RESTful** modular seguindo princípi
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      CAMADA DE API                           │
+│                      CAMADA DE API                          │
 │  Flask + Flask-CORS + Werkzeug                              │
 │  (src/api/app.py)                                           │
 │  - Roteamento HTTP                                          │
@@ -52,32 +53,32 @@ O PneumoFinder foi projetado como uma **API RESTful** modular seguindo princípi
 └─────────────────────────────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   CAMADA DE NEGÓCIO (CORE)                   │
+│                   CAMADA DE NEGÓCIO (CORE)                  │
 │  Funções puras para processamento                           │
-│  ┌──────────────┐ ┌─────────────┐ ┌───────────────────┐    │
-│  │  diagnosis.py│ │visualizat..│ │clinical_descri..│    │
-│  │  - CNN       │ │  - Grad-CAM │ │  - LLM          │    │
-│  │  - ResNet50  │ │  - Heatmap  │ │  - Ollama API   │    │
-│  └──────────────┘ └─────────────┘ └───────────────────┘    │
+│  ┌──────────────┐ ┌─────────────┐ ┌───────────────────┐     │
+│  │  diagnosis.py│ │visualizat.. │ │clinical_descri..  │     │
+│  │  - CNN       │ │  - Grad-CAM │ │  - LLM            │     │
+│  │  - ResNet50  │ │  - Heatmap  │ │  - Ollama API     │     │
+│  └──────────────┘ └─────────────┘ └───────────────────┘     │
 └─────────────────────────────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   CAMADA DE PERSISTÊNCIA                     │
-│  ┌───────────────────┐          ┌──────────────────────┐   │
-│  │  database.py      │          │  vector_store.py     │   │
-│  │  repositories.py  │          │  - ChromaDB          │   │
-│  │  - SQLite         │          │  - Embeddings        │   │
-│  │  - CRUD           │          │  - Busca semântica   │   │
-│  └───────────────────┘          └──────────────────────┘   │
+│                   CAMADA DE PERSISTÊNCIA                    │
+│  ┌───────────────────┐          ┌──────────────────────┐    │
+│  │  database.py      │          │  vector_store.py     │    │
+│  │  repositories.py  │          │  - ChromaDB          │    │
+│  │  - SQLite         │          │  - Embeddings        │    │
+│  │  - CRUD           │          │  - Busca semântica   │    │
+│  └───────────────────┘          └──────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    CAMADA DE UTILIDADES                      │
-│  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐    │
-│  │  config.py  │ │ file_utils.py│ │ image_utils.py   │    │
-│  │  - Env vars │ │ - Upload     │ │ - Preprocess     │    │
-│  │  - Paths    │ │ - Cleanup    │ │ - Transformação  │    │
-│  └─────────────┘ └──────────────┘ └──────────────────┘    │
+│                    CAMADA DE UTILIDADES                     │
+│  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐      │
+│  │  config.py  │ │ file_utils.py│ │ image_utils.py   │      │
+│  │  - Env vars │ │ - Upload     │ │ - Preprocess     │      │
+│  │  - Paths    │ │ - Cleanup    │ │ - Transformação  │      │
+│  └─────────────┘ └──────────────┘ └──────────────────┘      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -130,10 +131,10 @@ O ponto de entrada (`app.py` na raiz) delega para `src/api/app.py`:
 # app.py (raiz do projeto)
 if __name__ == "__main__":
     from src.api.app import app, config, ensure_directory
-    
+
     # Garante que diretório temporário existe
     ensure_directory(config.temp_dir)
-    
+
     # Inicia servidor Flask
     app.run(debug=config.debug_mode, port=config.api_port)
 ```
@@ -181,12 +182,14 @@ A API expõe **9 endpoints** divididos em 3 categorias:
 **Descrição:** Classifica radiografia como `PNEUMONIA` ou `NORMAL` usando CNN.
 
 **Entrada:**
+
 ```bash
 curl -X POST http://localhost:5001/diagnose \
   -F "image=@radiografia.jpg"
 ```
 
 **Saída:**
+
 ```json
 {
   "diagnosis": "PNEUMONIA",
@@ -204,12 +207,14 @@ curl -X POST http://localhost:5001/diagnose \
 **Descrição:** Além do diagnóstico, gera **Grad-CAM** e **descrição clínica com LLM**.
 
 **Entrada:**
+
 ```bash
 curl -X POST http://localhost:5001/diagnose/explained \
   -F "image=@radiografia.jpg"
 ```
 
 **Saída:**
+
 ```json
 {
   "diagnosis": "PNEUMONIA",
@@ -224,6 +229,7 @@ curl -X POST http://localhost:5001/diagnose/explained \
 **Código:** `src/api/app.py:120-206`
 
 **Fluxo interno:**
+
 1. Upload e deduplicação (SHA-256)
 2. CNN + Grad-CAM (`diagnose_with_visualization`)
 3. LLM (`generate_clinical_description`)
@@ -237,6 +243,7 @@ curl -X POST http://localhost:5001/diagnose/explained \
 **Descrição:** Verifica se a API está operacional (útil para orquestradores como Kubernetes).
 
 **Saída:**
+
 ```json
 {
   "status": "healthy",
@@ -255,18 +262,20 @@ curl -X POST http://localhost:5001/diagnose/explained \
 **Descrição:** Busca diagnóstico por ID com metadados completos.
 
 **Exemplo:**
+
 ```bash
 curl http://localhost:5001/api/diagnoses/42
 ```
 
 **Saída:**
+
 ```json
 {
   "id": 42,
   "diagnosis": "PNEUMONIA",
   "confidence": 0.87,
   "created_at": "2024-01-15T10:30:00",
-  "metadata": {"endpoint": "/diagnose/explained", "filename": "xray.jpg"},
+  "metadata": { "endpoint": "/diagnose/explained", "filename": "xray.jpg" },
   "description": "Consolidações bilaterais...",
   "has_visualizations": true
 }
@@ -281,6 +290,7 @@ curl http://localhost:5001/api/diagnoses/42
 **Descrição:** Encontra diagnósticos similares usando embeddings de texto (ChromaDB + HNSW).
 
 **Entrada:**
+
 ```bash
 curl -X POST http://localhost:5001/api/search/similar \
   -H "Content-Type: application/json" \
@@ -288,6 +298,7 @@ curl -X POST http://localhost:5001/api/search/similar \
 ```
 
 **Saída:**
+
 ```json
 {
   "query": "infiltrados pulmonares bilaterais",
@@ -315,12 +326,23 @@ curl -X POST http://localhost:5001/api/search/similar \
 **Descrição:** Lista últimos N diagnósticos ordenados por data.
 
 **Saída:**
+
 ```json
 {
   "count": 10,
   "diagnoses": [
-    {"id": 50, "diagnosis": "NORMAL", "confidence": 0.95, "created_at": "..."},
-    {"id": 49, "diagnosis": "PNEUMONIA", "confidence": 0.88, "created_at": "..."}
+    {
+      "id": 50,
+      "diagnosis": "NORMAL",
+      "confidence": 0.95,
+      "created_at": "..."
+    },
+    {
+      "id": 49,
+      "diagnosis": "PNEUMONIA",
+      "confidence": 0.88,
+      "created_at": "..."
+    }
   ]
 }
 ```
@@ -436,26 +458,26 @@ Para manter compatibilidade com versões anteriores da API (em português):
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Host Machine                            │
-│                                                              │
-│  ┌──────────────────────┐     ┌─────────────────────────┐  │
-│  │   Ollama (Host)      │     │   Docker Containers     │  │
-│  │   - Port: 11434      │◄────┤                         │  │
-│  │   - GPU: macOS/CUDA  │     │  ┌──────────────────┐   │  │
-│  │   - Model: LLaVA 7B  │     │  │ PneumoFinder API │   │  │
-│  └──────────────────────┘     │  │ Port: 5001       │   │  │
-│                                │  │ Volumes:         │   │  │
-│                                │  │ - models/ (RO)   │   │  │
-│                                │  │ - database/      │   │  │
-│                                │  │ - temp/          │   │  │
-│                                │  └────────┬─────────┘   │  │
-│                                │           │             │  │
-│                                │  ┌────────▼─────────┐   │  │
-│                                │  │   ChromaDB       │   │  │
-│                                │  │   Port: 8000     │   │  │
-│                                │  │   Volume:        │   │  │
-│                                │  │   - chroma-data/ │   │  │
-│                                │  └──────────────────┘   │  │
-│                                └─────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────┐     ┌─────────────────────────┐   │
+│  │   Ollama (Host)      │     │   Docker Containers     │   │
+│  │   - Port: 11434      │◄────┤                         │   │
+│  │   - GPU: macOS/CUDA  │     │  ┌──────────────────┐   │   │
+│  │   - Model: LLaVA 7B  │     │  │ PneumoFinder API │   │   │
+│  └──────────────────────┘     │  │ Port: 5001       │   │   │
+│                               │  │ Volumes:         │   │   │
+│                               │  │ - models/ (RO)   │   │   │
+│                               │  │ - database/      │   │   │
+│                               │  │ - temp/          │   │   │
+│                               │  └────────┬─────────┘   │   │
+│                               │           │             │   │
+│                               │  ┌────────▼─────────┐   │   │
+│                               │  │   ChromaDB       │   │   │
+│                               │  │   Port: 8000     │   │   │
+│                               │  │   Volume:        │   │   │
+│                               │  │   - chroma-data/ │   │   │
+│                               │  └──────────────────┘   │   │
+│                               └─────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -507,7 +529,7 @@ CMD ["python", "app.py"]
 Orquestra API + ChromaDB:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   api:
@@ -520,13 +542,13 @@ services:
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
     volumes:
-      - ./models:/app/models:ro           # Modelo CNN (read-only)
-      - api-database:/app/database        # SQLite persistente
-      - api-temp:/app/temp                # Uploads temporários
+      - ./models:/app/models:ro # Modelo CNN (read-only)
+      - api-database:/app/database # SQLite persistente
+      - api-temp:/app/temp # Uploads temporários
     depends_on:
       - chromadb
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Acessa Ollama no host
+      - "host.docker.internal:host-gateway" # Acessa Ollama no host
     restart: unless-stopped
 
   chromadb:
@@ -534,7 +556,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - chroma-data:/chroma/chroma         # Vetores persistentes
+      - chroma-data:/chroma/chroma # Vetores persistentes
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=FALSE
@@ -570,26 +592,26 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     """Configuração centralizada com suporte a variáveis de ambiente."""
-    
+
     # API
     api_port: int = int(os.getenv("API_PORT", "5001"))
     debug_mode: bool = os.getenv("FLASK_DEBUG", "0") == "1"
-    
+
     # Modelos
     cnn_model_path: str = os.getenv("CNN_MODEL_PATH", "models/pneumonia_model.keras")
-    
+
     # Ollama (LLM)
     ollama_host: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model: str = os.getenv("OLLAMA_MODEL", "llava:7b")
-    
+
     # ChromaDB
     chroma_host: str = os.getenv("CHROMA_HOST", "localhost")
     chroma_port: int = int(os.getenv("CHROMA_PORT", "8000"))
-    
+
     # Diretórios
     temp_dir: str = "temp"
     database_dir: str = "database"
-    
+
     # Prompts
     medical_prompt_path: str = "prompts/medical_analysis.txt"
 
@@ -600,15 +622,15 @@ config = Config()
 
 ### Variáveis de Ambiente Suportadas
 
-| Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `API_PORT` | `5001` | Porta HTTP do Flask |
-| `FLASK_DEBUG` | `0` | Debug mode (0=off, 1=on) |
-| `CNN_MODEL_PATH` | `models/pneumonia_model.keras` | Caminho do modelo TensorFlow |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | URL do servidor Ollama |
-| `OLLAMA_MODEL` | `llava:7b` | Modelo LLM a usar |
-| `CHROMA_HOST` | `localhost` | Hostname do ChromaDB |
-| `CHROMA_PORT` | `8000` | Porta do ChromaDB |
+| Variável          | Padrão                         | Descrição                    |
+| ----------------- | ------------------------------ | ---------------------------- |
+| `API_PORT`        | `5001`                         | Porta HTTP do Flask          |
+| `FLASK_DEBUG`     | `0`                            | Debug mode (0=off, 1=on)     |
+| `CNN_MODEL_PATH`  | `models/pneumonia_model.keras` | Caminho do modelo TensorFlow |
+| `OLLAMA_BASE_URL` | `http://localhost:11434`       | URL do servidor Ollama       |
+| `OLLAMA_MODEL`    | `llava:7b`                     | Modelo LLM a usar            |
+| `CHROMA_HOST`     | `localhost`                    | Hostname do ChromaDB         |
+| `CHROMA_PORT`     | `8000`                         | Porta do ChromaDB            |
 
 ### Arquivo `.env` (Exemplo)
 

@@ -1,0 +1,26 @@
+[
+  {
+    "model": "llava:7b",
+    "success": true,
+    "description": "The image displays a chest X-ray with an overlaid heatmap indicating areas of interest for pneumonia detection. Based on the visual evidence and the AI model's diagnosis, there are potential lung abnormalities in the right lower lobe (RLL) of the chest. These findings suggest the presence of opacities or consolidations, which could be indicative of pneumonia. The confidence level is 87.0%, suggesting a high degree of certainty that the patient has pneumonia. Clinical considerations should include further evaluation with additional imaging and possibly diagnostic tests to confirm the diagnosis and determine the severity and cause of the pneumonia.\n\n⚠️ Disclaimer: This AI analysis is for educational purposes only. Always consult qualified healthcare professionals for medical decisions.",
+    "latency_ms": 12757.35330581665,
+    "word_count": 116,
+    "char_count": 794
+  },
+  {
+    "model": "llava:13b",
+    "success": true,
+    "description": "The highlighted regions on the chest X-ray image suggest potential lung abnormalities such as infiltrates or consolidations. These areas indicate increased opacity within the lungs, which could be indicative of pneumonia. The model's confidence level is 87%, suggesting a strong likelihood that this diagnosis is accurate based on the visual analysis provided by the AI assistant. Clinical considerations would include further evaluation with additional diagnostic tests and consultation with healthcare providers to confirm the diagnosis and determine appropriate treatment options.\n\n⚠️ Disclaimer: This AI analysis is for educational purposes only. Always consult qualified healthcare professionals for medical decisions.",
+    "latency_ms": 28194.737911224365,
+    "word_count": 98,
+    "char_count": 723
+  },
+  {
+    "model": "llava-llama3",
+    "success": true,
+    "description": "The image presents a detailed view of a chest X-ray, captured in black and white. The primary focus is on the right side of the image where the rib cage and lungs are clearly visible. \n\nIn the right lung, there are two areas that stand out due to their high heatmaps overlay. These areas suggest potential lung abnormalities that may indicate an underlying condition such as pneumonia. \n\nThe left lung appears relatively normal with no significant abnormalities or heatmaps overlay. This could imply a lower risk of disease in this particular region.\n\nOverall, the image provides a clear and detailed view of the right lung, highlighting potential areas of concern for further evaluation. However, without additional context or information beyond what is visible in the image, it's difficult to provide a definitive diagnosis or treatment recommendations.\n\n⚠️ Disclaimer: This AI analysis is for educational purposes only. Always consult qualified healthcare professionals for medical decisions.",
+    "latency_ms": 18267.134189605713,
+    "word_count": 154,
+    "char_count": 995
+  }
+]

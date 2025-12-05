@@ -3,7 +3,7 @@ name = "pneumofinder-api"
 version = "2.0.0"
 description = "API RESTful para diagnóstico de pneumonia usando CNNs"
 authors = [
-    {name = "Yan Fernandes", email = "yan@indianboy.sh"}
+    {name = "Yan Fernandes", email = "yan@indianboy.sh"},
     {name = "Cauã Farias", email = ""}
 ]
 readme = "README.md"
