@@ -1,0 +1,7 @@
+A imagem apresenta uma visão detalhada de um exame de tórax X em preto e branco, com exceções nas áreas destacadas. As áreas destacadas são coloridas vermelho e laranja, indicando regiões onde o modelo de diagnóstico AI concentrou sua atenção durante o diagnóstico.
+
+Na área do pulmão superior direito, há uma área destacada que parece ser infiltrato ou opacidade, o que pode potencialmente indicar um sinal de pneumonia. Essa região se destaca devido à sua coloração distinta em comparação ao resto da imagem.
+
+No lado esquerdo da imagem, nas lóbulos médio e inferior do pulmão direito, há duas áreas destacadas. Essas áreas também aparecem como infiltrados ou opacidades, o que pode ser indicativo de pneumonia.
+
+O fundo da imagem é preto, fornecendo contraste àcentuado às áreas destacadas e tornando-nas mais distintas. A imagem geralmente oferece uma visão detalhada do exame de tórax X, destacando potenciais anomalias pulmonares que podem requerer investigação adicional.

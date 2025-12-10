@@ -1,0 +1,3 @@
+As áreas de opacidade aumentada nas imagens de radiografia do tórax destacadas mostram infiltrados ou consolidações nas vias respiratórias, o que sugere a presença de inflamação ou infecção. A confiança do modelo é de 98,6%, o que indica alta certeza na diagnose. Considerações clínicas incluem avaliar se essas encontradas são indicativas de pneumonia ou outra condição pulmonar e iniciar tratamento adequado rapidamente se necessário.
+
+🚨 Notificação: A análise de IA é destinada apenas a fins educacionais. Consulte sempre profissionais de saúde qualificados para tomadas médicas.

@@ -1,6 +1,7 @@
 {
-  "generation_date": "2025-12-05 10:30:46",
+  "generation_date": "2025-12-10 14:28:58",
   "random_seed": 42,
+  "note": "Cases 01-04 originally selected with seed=42. Case 05 added to test CNN error handling.",
   "models_tested": [
     "llava:7b",
     "llava:13b",
@@ -9,19 +10,28 @@
   "test_cases": {
     "case_01_normal_clear": {
       "filename": "6_normal3.jpeg",
-      "ground_truth": "NORMAL"
+      "ground_truth": "NORMAL",
+      "cnn_error": false
     },
     "case_02_pneumonia_severe": {
       "filename": "3_pneumonia1.jpeg",
-      "ground_truth": "PNEUMONIA"
+      "ground_truth": "PNEUMONIA",
+      "cnn_error": false
     },
     "case_03_normal_challenging": {
       "filename": "1_normal1.jpeg",
-      "ground_truth": "NORMAL"
+      "ground_truth": "NORMAL",
+      "cnn_error": false
     },
     "case_04_pneumonia_moderate": {
       "filename": "5_pneumonia3.jpeg",
-      "ground_truth": "PNEUMONIA"
+      "ground_truth": "PNEUMONIA",
+      "cnn_error": false
+    },
+    "case_05_false_negative": {
+      "filename": "person72_bacteria_354.jpeg",
+      "ground_truth": "PNEUMONIA",
+      "cnn_error": true
     }
   },
   "cnn_model": "models/pneumonia_model.keras",
@@ -32,5 +42,5 @@
     "temperature": 0.3,
     "max_tokens": 500
   },
-  "total_processing_time_seconds": 326.404767036438
+  "total_processing_time_seconds": 111.39396619796753
 }

@@ -12,11 +12,15 @@ Avaliar empiricamente qual modelo LLaVA (7B, 13B, ou Llama3) gera descrições c
 3. **LLaVA-Llama3** - Modelo moderno baseado em Llama 3 (5.5GB)
 
 ### Casos Clínicos
-Todos os 3 modelos analisaram os **MESMOS 4 casos**:
+Todos os 3 modelos analisaram os **MESMOS 5 casos**:
 - **Caso 1:** Pulmão normal (caso claro)
 - **Caso 2:** Pneumonia severa
 - **Caso 3:** Pulmão normal (caso desafiador)
 - **Caso 4:** Pneumonia moderada
+- **Caso 5:** ⚠️ **Falso Negativo da CNN** (pneumonia classificada como normal)
+
+**Nota sobre Caso 5:**  
+Este caso foi adicionado especificamente para avaliar a robustez dos modelos LLM quando a CNN comete um erro crítico (falso negativo). O objetivo é verificar se as descrições geradas pelos modelos conseguem identificar padrões suspeitos mesmo quando o diagnóstico automatizado está incorreto, demonstrando o valor da análise multimodal como camada adicional de segurança.
 
 ## 📁 Arquivos por Caso
 
@@ -35,7 +39,7 @@ Cada caso contém 7 arquivos numerados:
 1. **Abra o formulário:** `evaluation_form.md`
 2. **Para cada modelo** (llava_7b, llava_13b, llava_llama3):
    - Navegue até a pasta do modelo
-   - Para cada caso (01 a 04):
+   - Para cada caso (01 a 05):
      - Visualize a imagem original (`1_original.jpeg`)
      - Observe o Grad-CAM (`3_gradcam_overlay.png`) - áreas em vermelho são onde a CNN focou
      - Leia o diagnóstico da CNN (`4_cnn_diagnosis.json`)
@@ -44,7 +48,7 @@ Cada caso contém 7 arquivos numerados:
 3. **Compare os 3 modelos** e indique sua recomendação
 
 ## ⏱️ Tempo Estimado
-- **15-20 minutos** (avaliação completa)
+- **18-24 minutos** (avaliação completa - 5 casos × 3 modelos)
 
 ## 🔬 Critérios de Avaliação
 

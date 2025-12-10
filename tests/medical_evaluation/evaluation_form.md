@@ -10,10 +10,10 @@
 
 Você avaliará **3 modelos de IA** que geram descrições clínicas de raios-X de tórax.
 
-- Cada modelo analisou os **MESMOS 4 casos** (2 normais + 2 pneumonia)
+- Cada modelo analisou os **MESMOS 5 casos** (2 normais + 3 pneumonia, incluindo 1 falso negativo da CNN)
 - Foque na descrição em português: `6_llm_description_pt.txt`
 - Compare com: imagem original + overlay Grad-CAM + diagnóstico CNN
-- **Tempo estimado:** 15-20 minutos
+- **Tempo estimado:** 18-24 minutos
 
 ---
 
@@ -90,6 +90,33 @@ _______________________________________________
 - [ ] Nenhum problema significativo
 
 **3. Comentários (opcional):**  
+_______________________________________________  
+_______________________________________________
+
+---
+
+### Caso 05 - Pneumonia (Falso Negativo da CNN) ⚠️
+
+> **ATENÇÃO:** Neste caso, a CNN **ERROU** o diagnóstico (classificou como NORMAL, mas é PNEUMONIA).  
+> Avalie se a descrição do LLM consegue identificar achados suspeitos apesar do erro da CNN.
+
+**1. Avaliação Geral (1-5):** ___
+
+**2. Problemas Identificados (marque todos aplicáveis):**
+- [ ] Anatomia incorreta ou imprecisa
+- [ ] Terminologia médica inapropriada
+- [ ] Interpretação radiológica incorreta
+- [ ] Inconsistente com diagnóstico CNN
+- [ ] Alucinações (informações não visíveis)
+- [ ] Omissão de achados importantes
+- [ ] Nenhum problema significativo
+
+**3. Robustez do Modelo (específico para este caso):**
+- [ ] ✅ Identificou achados suspeitos/anormais apesar da CNN indicar "NORMAL"
+- [ ] ⚖️ Descrição neutra/objetiva, sem contradizer nem reforçar o erro
+- [ ] ❌ Reforçou o erro da CNN (ex: "pulmões limpos", "sem alterações")
+
+**4. Comentários (opcional):**  
 _______________________________________________  
 _______________________________________________
 
@@ -173,6 +200,33 @@ _______________________________________________
 
 ---
 
+### Caso 05 - Pneumonia (Falso Negativo da CNN) ⚠️
+
+> **ATENÇÃO:** Neste caso, a CNN **ERROU** o diagnóstico (classificou como NORMAL, mas é PNEUMONIA).  
+> Avalie se a descrição do LLM consegue identificar achados suspeitos apesar do erro da CNN.
+
+**1. Avaliação Geral (1-5):** ___
+
+**2. Problemas Identificados (marque todos aplicáveis):**
+- [ ] Anatomia incorreta ou imprecisa
+- [ ] Terminologia médica inapropriada
+- [ ] Interpretação radiológica incorreta
+- [ ] Inconsistente com diagnóstico CNN
+- [ ] Alucinações (informações não visíveis)
+- [ ] Omissão de achados importantes
+- [ ] Nenhum problema significativo
+
+**3. Robustez do Modelo (específico para este caso):**
+- [ ] ✅ Identificou achados suspeitos/anormais apesar da CNN indicar "NORMAL"
+- [ ] ⚖️ Descrição neutra/objetiva, sem contradizer nem reforçar o erro
+- [ ] ❌ Reforçou o erro da CNN (ex: "pulmões limpos", "sem alterações")
+
+**4. Comentários (opcional):**  
+_______________________________________________  
+_______________________________________________
+
+---
+
 ## MODELO 3: LLaVA-Llama3
 
 ### Caso 01 - Normal (Claro)
@@ -246,6 +300,33 @@ _______________________________________________
 - [ ] Nenhum problema significativo
 
 **3. Comentários (opcional):**  
+_______________________________________________  
+_______________________________________________
+
+---
+
+### Caso 05 - Pneumonia (Falso Negativo da CNN) ⚠️
+
+> **ATENÇÃO:** Neste caso, a CNN **ERROU** o diagnóstico (classificou como NORMAL, mas é PNEUMONIA).  
+> Avalie se a descrição do LLM consegue identificar achados suspeitos apesar do erro da CNN.
+
+**1. Avaliação Geral (1-5):** ___
+
+**2. Problemas Identificados (marque todos aplicáveis):**
+- [ ] Anatomia incorreta ou imprecisa
+- [ ] Terminologia médica inapropriada
+- [ ] Interpretação radiológica incorreta
+- [ ] Inconsistente com diagnóstico CNN
+- [ ] Alucinações (informações não visíveis)
+- [ ] Omissão de achados importantes
+- [ ] Nenhum problema significativo
+
+**3. Robustez do Modelo (específico para este caso):**
+- [ ] ✅ Identificou achados suspeitos/anormais apesar da CNN indicar "NORMAL"
+- [ ] ⚖️ Descrição neutra/objetiva, sem contradizer nem reforçar o erro
+- [ ] ❌ Reforçou o erro da CNN (ex: "pulmões limpos", "sem alterações")
+
+**4. Comentários (opcional):**  
 _______________________________________________  
 _______________________________________________
 

@@ -1,0 +1,14 @@
+{
+  "model": "llava-llama3",
+  "case_id": "case_05_false_negative",
+  "image_filename": "person72_bacteria_354.jpeg",
+  "latency_cnn_ms": 695.8959102630615,
+  "latency_gradcam_ms": 7079.08296585083,
+  "latency_llm_en_ms": 19215.647220611572,
+  "latency_llm_pt_ms": 8484.171152114868,
+  "total_latency_ms": 26990.626096725464,
+  "word_count_en": 182,
+  "word_count_pt": 152,
+  "char_count_en": 1125,
+  "char_count_pt": 978
+}

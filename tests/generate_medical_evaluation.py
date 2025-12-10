@@ -53,14 +53,15 @@ OLLAMA_HOST = "http://localhost:11434"
 OLLAMA_TEMP = 0.3
 OLLAMA_MAX_TOKENS = 500
 
-# Test cases (will be selected with seed)
-NORMAL_CASES = ["1_normal1.jpeg", "2_normal2.jpeg", "6_normal3.jpeg"]
-PNEUMONIA_CASES = [
-    "3_pneumonia1.jpeg",
-    "4_pneumonia2.jpeg",
-    "5_pneumonia3.jpeg",
-    "person75_bacteria_365.jpeg",
-]
+# Test cases (fixed for reproducibility - originally selected with seed=42)
+# Case 05 added specifically to test LLM robustness when CNN fails
+EVALUATION_CASES = {
+    "case_01_normal_clear": ("6_normal3.jpeg", "NORMAL"),
+    "case_02_pneumonia_severe": ("3_pneumonia1.jpeg", "PNEUMONIA"),
+    "case_03_normal_challenging": ("1_normal1.jpeg", "NORMAL"),
+    "case_04_pneumonia_moderate": ("5_pneumonia3.jpeg", "PNEUMONIA"),
+    "case_05_false_negative": ("person72_bacteria_354.jpeg", "PNEUMONIA"),  # CNN ERROR
+}
 
 
 # ============================================================================
@@ -92,31 +93,6 @@ def download_ollama_model(model_name: str) -> None:
     except subprocess.CalledProcessError as e:
         print(f"❌ Failed to download {model_name}: {e}")
         sys.exit(1)
-
-
-def select_test_cases(seed: int | None = 42) -> dict[str, tuple[str, str]]:
-    """
-    Select 4 test cases: 2 normal + 2 pneumonia.
-
-    Args:
-        seed: Random seed for reproducibility (None = random)
-
-    Returns:
-        Dict mapping case_id to (filename, ground_truth)
-    """
-    if seed is not None:
-        random.seed(seed)
-
-    # Select 2 random from each category
-    selected_normal = random.sample(NORMAL_CASES, 2)
-    selected_pneumonia = random.sample(PNEUMONIA_CASES, 2)
-
-    return {
-        "case_01_normal_clear": (selected_normal[0], "NORMAL"),
-        "case_02_pneumonia_severe": (selected_pneumonia[0], "PNEUMONIA"),
-        "case_03_normal_challenging": (selected_normal[1], "NORMAL"),
-        "case_04_pneumonia_moderate": (selected_pneumonia[1], "PNEUMONIA"),
-    }
 
 
 def translate_to_portuguese(text_en: str, model_name: str) -> tuple[str, float]:
@@ -207,6 +183,13 @@ def process_single_case(
         "latency_ms": float(latency_cnn),
         "ground_truth": ground_truth,
         "correct": diagnosis == ground_truth,
+        "error_type": (
+            "FALSE_NEGATIVE"
+            if (diagnosis == "NORMAL" and ground_truth == "PNEUMONIA")
+            else "FALSE_POSITIVE"
+            if (diagnosis == "PNEUMONIA" and ground_truth == "NORMAL")
+            else None
+        ),
     }
 
     with open(cnn_json, "w") as f:
@@ -489,7 +472,13 @@ def main():
         "--seed",
         type=str,
         default="42",
-        help="Random seed for case selection (use 'none' for random)",
+        help="Random seed (deprecated - cases are now fixed for reproducibility)",
+    )
+    parser.add_argument(
+        "--only-case",
+        type=str,
+        choices=list(EVALUATION_CASES.keys()),
+        help="Process only a specific case (e.g., case_05_false_negative)",
     )
     parser.add_argument(
         "--cleanup",
@@ -499,17 +488,22 @@ def main():
 
     args = parser.parse_args()
 
-    # Parse seed
-    seed = None if args.seed.lower() == "none" else int(args.seed)
-
     print("=" * 80)
     print("LLaVA Medical Evaluation - Dataset Generator")
     print("=" * 80)
-    print(f"\n🎲 Random seed: {seed if seed is not None else 'None (random)'}")
 
-    # 1. Select test cases
-    print("\n📋 Selecting test cases...")
-    test_cases = select_test_cases(seed)
+    # 1. Get test cases
+    print("\n📋 Test cases:")
+    test_cases = EVALUATION_CASES
+
+    # Filter if --only-case specified
+    if args.only_case:
+        if args.only_case in test_cases:
+            test_cases = {args.only_case: test_cases[args.only_case]}
+            print(f"  ⚠️  Processing ONLY: {args.only_case}")
+        else:
+            print(f"❌ Error: Case '{args.only_case}' not found in EVALUATION_CASES")
+            sys.exit(1)
 
     for case_id, (filename, ground_truth) in test_cases.items():
         print(f"  - {case_id}: {filename} ({ground_truth})")
@@ -582,11 +576,16 @@ def main():
     # 7. Generate evaluation metadata
     metadata = {
         "generation_date": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "random_seed": seed,
+        "random_seed": 42,  # Historical reference (cases now fixed)
+        "note": "Cases 01-04 originally selected with seed=42. Case 05 added to test CNN error handling.",
         "models_tested": MODELS,
         "test_cases": {
-            case_id: {"filename": filename, "ground_truth": ground_truth}
-            for case_id, (filename, ground_truth) in test_cases.items()
+            case_id: {
+                "filename": filename,
+                "ground_truth": ground_truth,
+                "cnn_error": case_id == "case_05_false_negative",
+            }
+            for case_id, (filename, ground_truth) in EVALUATION_CASES.items()
         },
         "cnn_model": CNN_MODEL_PATH,
         "cnn_architecture": "ResNet50",
