@@ -1,0 +1,36 @@
+CHEST X-RAY ANALYSIS - 3-STAGE MEDICAL PIPELINE
+======================================================================
+
+CNN CLASSIFICATION
+Diagnosis: PNEUMONIA (Confidence: 96.2%)
+Ground Truth: PNEUMONIA
+✓ Correct Classification
+
+======================================================================
+
+STAGE 1: VISION ANALYSIS (llava:7b)
+
+The image shows a chest X-ray of a patient who has interstitial pneumonia, which is characterized by reticular or ground-glass opacities in the lower lobes of both lungs. The left lung has two lobes, while the right lung has three lobes. There are no acute cardiopulmonary abnormality seen on the image.
+
+The lungs appear to be clear and no other significant radiological findings can be identified.
+
+======================================================================
+
+STAGE 2: MEDICAL ASSESSMENT (BioMistral-7B + RAG)
+
+"The lungs appear to be clear and no other significant radiological findings can be identified."
+
+======================================================================
+
+PERFORMANCE METRICS
+- Stage 1 (Vision): 9.7s
+- Stage 2 (Medical): 38.4s
+
+- Total Pipeline: 49.1s
+
+======================================================================
+
+⚠️ DISCLAIMER
+This AI-assisted analysis is for educational and research purposes only.
+Always consult qualified healthcare professionals for medical decisions.
+Generated: 2025-12-11 11:31:20

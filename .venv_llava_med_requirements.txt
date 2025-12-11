@@ -1,0 +1,36 @@
+# Isolated LLaVA-Med Environment Requirements
+# Compatible protobuf version to avoid descriptor errors
+
+# Protobuf - COMPATIBLE VERSION (critical!)
+protobuf==3.20.3
+
+# LLaVA-Med exact versions (from LLaVA-Med/pyproject.toml)
+transformers==4.36.2
+sentencepiece==0.1.99
+tokenizers>=0.15.0
+accelerate==0.21.0
+peft==0.4.0
+bitsandbytes==0.41.0
+
+# PyTorch (MPS support for M4 Pro)
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Vision models
+timm==0.9.12
+einops==0.6.1
+
+# Image processing
+pillow>=10.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0
+
+# RAG dependencies (shared with main, reinstalled here)
+chromadb>=0.4.22
+sentence-transformers>=2.2.0
+
+# Utils
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Note: TensorFlow/Keras NOT included - we reuse CNN results from main evaluation

@@ -1,0 +1,27 @@
+{
+  "model": "llava:7b",
+  "findings_en": "This is a standard PA chest x-ray with no abnormalities observed. The lungs appear to be clear and well-aerated, without any evidence of pleural effusion or pneumothorax. The heart also appears normal in size and shape. There are no visible fractures or abnormal patterns within the bones. The diaphragm can be seen at the bottom of the image, indicating a proper lower margin of the lung. No other organs or structures can be confidently identified due to the standard orientation of the x-ray. The image does not show any signs of interstitial pneumonia or any other significant abnormalities.",
+  "rag_context": "=== RELEVANT GUIDELINES ===\n- On PA chest X-ray, the RIGHT side appears on the LEFT of the image (patient facing you). Right lung has three lobes (upper, middle, lower); left lung has two lobes (upper, lower) with lingula. Always verify with cardiac apex (points left) and gastric bubble (left lower).\n- Interstitial pneumonia presents with reticular or ground-glass opacities, predominantly in lower lobes. Linear opacities and septal thickening may be present. Often viral etiology (influenza, COVID-19, RSV).",
+  "latency_s": 10.71453309059143,
+  "word_count": 98,
+  "sentence_count": 7,
+  "char_count": 595,
+  "medical_term_count": 10,
+  "medical_terms_found": [
+    "lung",
+    "diaphragm",
+    "effusion",
+    "pneumothorax",
+    "pneumonia",
+    "clear",
+    "normal",
+    "abnormal",
+    "x-ray",
+    "chest"
+  ],
+  "medical_density": 0.10204081632653061,
+  "has_anatomy_description": true,
+  "has_findings_description": true,
+  "has_assessment": true,
+  "structural_completeness": 1.0
+}

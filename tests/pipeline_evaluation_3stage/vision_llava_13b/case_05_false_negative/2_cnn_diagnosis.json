@@ -1,0 +1,8 @@
+{
+  "diagnosis": "NORMAL",
+  "confidence": 0.9863345799967647,
+  "latency_s": 0.38895201683044434,
+  "ground_truth": "PNEUMONIA",
+  "correct": false,
+  "error_type": "FALSE_NEGATIVE"
+}

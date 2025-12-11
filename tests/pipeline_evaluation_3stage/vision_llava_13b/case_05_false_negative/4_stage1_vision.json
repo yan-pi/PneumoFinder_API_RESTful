@@ -1,0 +1,27 @@
+{
+  "model": "llava:13b",
+  "findings_en": "Based on the chest X-ray of a person labeled as \"data/samples/person72_bacteria_354.jpeg,\" I am able to observe the following radiological findings:\n\n1. The left lung appears slightly larger than the right lung, suggesting an increased volume or density in its upper, middle, and lower lobes.\n2. There is no visible pleural effusion, pneumothorax, or cardiomegaly present in the image.\n3. The gastric bubble can be observed on the left side of the image, indicating that the patient was lying down during the examination.\n\nIn summary, this chest X-ray shows a slight asymmetry between the right and left lung lobules with no acute findings.",
+  "rag_context": "=== RELEVANT GUIDELINES ===\n- On PA chest X-ray, the RIGHT side appears on the LEFT of the image (patient facing you). Right lung has three lobes (upper, middle, lower); left lung has two lobes (upper, lower) with lingula. Always verify with cardiac apex (points left) and gastric bubble (left lower).\n- Interstitial pneumonia presents with reticular or ground-glass opacities, predominantly in lower lobes. Linear opacities and septal thickening may be present. Often viral etiology (influenza, COVID-19, RSV).",
+  "latency_s": 11.633212089538574,
+  "word_count": 102,
+  "sentence_count": 8,
+  "char_count": 640,
+  "medical_term_count": 10,
+  "medical_terms_found": [
+    "lung",
+    "right",
+    "left",
+    "base",
+    "effusion",
+    "pneumothorax",
+    "increased",
+    "x-ray",
+    "chest",
+    "findings"
+  ],
+  "medical_density": 0.09803921568627451,
+  "has_anatomy_description": true,
+  "has_findings_description": false,
+  "has_assessment": false,
+  "structural_completeness": 0.3333333333333333
+}

@@ -1,0 +1,28 @@
+{
+  "model": "BioMistral-7B",
+  "report_en": "\"The chest X-ray shows a slightly hazy appearance, with no significant opacities or consolidations. The left and right lungs appear to be of similar size, and there is no visible heart. There are also no pleural effusions or pneumothoraces observed. Overall, the image appears to be clear bilaterally, indicating that there are no acute findings in the lungs or cardiovascular system.\"",
+  "rag_context": "=== RELEVANT GUIDELINES ===\n- On PA chest X-ray, the RIGHT side appears on the LEFT of the image (patient facing you). Right lung has three lobes (upper, middle, lower); left lung has two lobes (upper, lower) with lingula. Always verify with cardiac apex (points left) and gastric bubble (left lower).\n- Interstitial pneumonia presents with reticular or ground-glass opacities, predominantly in lower lobes. Linear opacities and septal thickening may be present. Often viral etiology (influenza, COVID-19, RSV).\n\n=== SIMILAR REPORTS ===\n- Opacidades bilaterais peri-hilares com padrão reticulonodular. Infiltrados em placas nos terços médios de ambos os pulmões. Bases pulmonares com opacidades confluentes. Silhueta cardíaca normal. Achados sugestivos de broncopneumonia bilateral. Acompanhamento radiológico sugerido após tratamento.",
+  "latency_s": 44.89660286903381,
+  "word_count": 61,
+  "sentence_count": 5,
+  "char_count": 385,
+  "medical_term_count": 11,
+  "medical_terms_found": [
+    "lung",
+    "bilateral",
+    "right",
+    "left",
+    "opacities",
+    "consolidation",
+    "effusion",
+    "clear",
+    "x-ray",
+    "chest",
+    "findings"
+  ],
+  "medical_density": 0.18032786885245902,
+  "has_anatomy_description": true,
+  "has_findings_description": true,
+  "has_assessment": false,
+  "structural_completeness": 0.6666666666666666
+}

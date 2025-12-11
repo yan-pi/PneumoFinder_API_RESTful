@@ -1,0 +1,8 @@
+{
+  "diagnosis": "NORMAL",
+  "confidence": 0.9999999952973533,
+  "latency_s": 0.07094717025756836,
+  "ground_truth": "NORMAL",
+  "correct": true,
+  "error_type": null
+}

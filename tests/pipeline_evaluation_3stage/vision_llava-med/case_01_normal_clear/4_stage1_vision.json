@@ -1,0 +1,24 @@
+{
+  "model": "llava-med",
+  "findings_en": "The chest X-ray shows bilateral clear lung fields, which means that both lungs appear normal and free of any acute abnormalities.",
+  "rag_context": "=== RELEVANT GUIDELINES ===\n- On PA chest X-ray, the RIGHT side appears on the LEFT of the image (patient facing you). Right lung has three lobes (upper, middle, lower); left lung has two lobes (upper, lower) with lingula. Always verify with cardiac apex (points left) and gastric bubble (left lower).\n- Interstitial pneumonia presents with reticular or ground-glass opacities, predominantly in lower lobes. Linear opacities and septal thickening may be present. Often viral etiology (influenza, COVID-19, RSV).",
+  "latency_s": 51.56556415557861,
+  "word_count": 21,
+  "sentence_count": 1,
+  "char_count": 129,
+  "medical_term_count": 7,
+  "medical_terms_found": [
+    "lung",
+    "bilateral",
+    "clear",
+    "normal",
+    "abnormal",
+    "x-ray",
+    "chest"
+  ],
+  "medical_density": 0.3333333333333333,
+  "has_anatomy_description": true,
+  "has_findings_description": true,
+  "has_assessment": true,
+  "structural_completeness": 1.0
+}

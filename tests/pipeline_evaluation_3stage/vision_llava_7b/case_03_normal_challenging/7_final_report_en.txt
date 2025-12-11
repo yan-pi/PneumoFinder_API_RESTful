@@ -1,0 +1,34 @@
+CHEST X-RAY ANALYSIS - 3-STAGE MEDICAL PIPELINE
+======================================================================
+
+CNN CLASSIFICATION
+Diagnosis: NORMAL (Confidence: 100.0%)
+Ground Truth: NORMAL
+✓ Correct Classification
+
+======================================================================
+
+STAGE 1: VISION ANALYSIS (llava:7b)
+
+This is a standard PA chest x-ray with no abnormalities observed. The lungs appear to be clear and well-aerated, without any evidence of pleural effusion or pneumothorax. The heart also appears normal in size and shape. There are no visible fractures or abnormal patterns within the bones. The diaphragm can be seen at the bottom of the image, indicating a proper lower margin of the lung. No other organs or structures can be confidently identified due to the standard orientation of the x-ray. The image does not show any signs of interstitial pneumonia or any other significant abnormalities.
+
+======================================================================
+
+STAGE 2: MEDICAL ASSESSMENT (BioMistral-7B + RAG)
+
+"The lungs appear to be clear and well-aerated, without any evidence of pleural effusion or pneumothorax. The heart also appears normal in size and shape. There are no visible fractures or abnormal patterns within the bones. The diaphragm can be seen at the bottom of the image, indicating a proper lower margin of the lung. No other organs or structures can be confidently identified due to the standard orientation of the x-ray. The image does not show any signs of interstitial pneumonia or any other significant abnormalities."
+
+======================================================================
+
+PERFORMANCE METRICS
+- Stage 1 (Vision): 10.7s
+- Stage 2 (Medical): 45.7s
+
+- Total Pipeline: 57.3s
+
+======================================================================
+
+⚠️ DISCLAIMER
+This AI-assisted analysis is for educational and research purposes only.
+Always consult qualified healthcare professionals for medical decisions.
+Generated: 2025-12-11 11:30:24

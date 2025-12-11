@@ -1,0 +1,34 @@
+CHEST X-RAY ANALYSIS - 3-STAGE MEDICAL PIPELINE
+======================================================================
+
+CNN CLASSIFICATION
+Diagnosis: PNEUMONIA (Confidence: 96.2%)
+Ground Truth: PNEUMONIA
+✓ Correct Classification
+
+======================================================================
+
+STAGE 1: VISION ANALYSIS (llava-llama3)
+
+"The chest x-ray shows a right upper lobe opacity, which could be indicative of interstitial pneumonia or another similar condition. The remaining anatomy appears normal. However, without further information or follow-up imaging, it is impossible to definitively determine the cause of the opacity."
+
+======================================================================
+
+STAGE 2: MEDICAL ASSESSMENT (BioMistral-7B + RAG)
+
+"The chest x-ray shows a right upper lobe opacity, which could be indicative of interstitial pneumonia or another similar condition. The remaining anatomy appears normal. However, without further information or follow-up imaging, it is impossible to definitively determine the cause of the opacity."
+
+======================================================================
+
+PERFORMANCE METRICS
+- Stage 1 (Vision): 8.9s
+- Stage 2 (Medical): 46.6s
+
+- Total Pipeline: 56.4s
+
+======================================================================
+
+⚠️ DISCLAIMER
+This AI-assisted analysis is for educational and research purposes only.
+Always consult qualified healthcare professionals for medical decisions.
+Generated: 2025-12-11 11:26:24

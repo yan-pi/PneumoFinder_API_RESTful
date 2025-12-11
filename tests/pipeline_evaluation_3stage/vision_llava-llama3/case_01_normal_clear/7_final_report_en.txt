@@ -1,0 +1,34 @@
+CHEST X-RAY ANALYSIS - 3-STAGE MEDICAL PIPELINE
+======================================================================
+
+CNN CLASSIFICATION
+Diagnosis: NORMAL (Confidence: 100.0%)
+Ground Truth: NORMAL
+✓ Correct Classification
+
+======================================================================
+
+STAGE 1: VISION ANALYSIS (llava-llama3)
+
+The chest X-ray is of an adult, and there are no apparent acute findings. The diaphragm is located at the bottom of the image, with the heart situated to the left. Both lungs appear clear and normal, with no visible consolidations or abnormalities. There are also no signs of pleural effusion, pneumothorax, or cardiomegaly on this radiology study.
+
+======================================================================
+
+STAGE 2: MEDICAL ASSESSMENT (BioMistral-7B + RAG)
+
+"There is no acute cardiopulmonary abnormality. Lungs are clear bilaterally. Clinical correlation recommended."
+
+======================================================================
+
+PERFORMANCE METRICS
+- Stage 1 (Vision): 12.9s
+- Stage 2 (Medical): 84.1s
+
+- Total Pipeline: 98.1s
+
+======================================================================
+
+⚠️ DISCLAIMER
+This AI-assisted analysis is for educational and research purposes only.
+Always consult qualified healthcare professionals for medical decisions.
+Generated: 2025-12-11 11:22:22

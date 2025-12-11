@@ -1,0 +1,36 @@
+CHEST X-RAY ANALYSIS - 3-STAGE MEDICAL PIPELINE
+======================================================================
+
+CNN CLASSIFICATION
+Diagnosis: PNEUMONIA (Confidence: 96.2%)
+Ground Truth: PNEUMONIA
+✓ Correct Classification
+
+======================================================================
+
+STAGE 1: VISION ANALYSIS (llava:13b)
+
+The image is a chest X-ray on a patient facing to the right with the right side appearing on the left. The lungs are clear bilaterally, and there are no acute cardiopulmonary abnormality.
+
+Please note that this description does not include any additional information beyond what can be directly observed in the image.
+
+======================================================================
+
+STAGE 2: MEDICAL ASSESSMENT (BioMistral-7B + RAG)
+
+"The patient has clear lungs bilaterally. No acute cardiopulmonary abnormality is seen. Clinical correlation recommended."
+
+======================================================================
+
+PERFORMANCE METRICS
+- Stage 1 (Vision): 8.8s
+- Stage 2 (Medical): 35.8s
+
+- Total Pipeline: 45.5s
+
+======================================================================
+
+⚠️ DISCLAIMER
+This AI-assisted analysis is for educational and research purposes only.
+Always consult qualified healthcare professionals for medical decisions.
+Generated: 2025-12-11 11:36:02

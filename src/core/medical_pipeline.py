@@ -179,7 +179,7 @@ class MedicalPipeline:
             logger.info(f"✅ {model_name} unloaded")
 
     def _run_llava_med(self, image_path: str, prompt: str) -> str:
-        """Run LLaVA-Med inference using official repo.
+        """Run LLaVA-Med inference using Python API.
 
         Args:
             image_path: Path to X-ray image
@@ -188,44 +188,98 @@ class MedicalPipeline:
         Returns:
             LLaVA-Med response text
         """
-        llava_med_path = Path.home() / "www/tcc/LLaVA-Med"
-        inference_script = llava_med_path / "llava/eval/run_llava.py"
+        # Lazy import to avoid loading model on init
+        import sys
+        from pathlib import Path
 
-        if not inference_script.exists():
+        # Add LLaVA-Med to path
+        llava_med_path = Path.home() / "www/tcc/LLaVA-Med"
+        if not llava_med_path.exists():
             raise FileNotFoundError(
                 f"LLaVA-Med not found at {llava_med_path}. "
-                "Run: python scripts/setup_llava_med_official.py"
+                "Run: git clone https://github.com/microsoft/LLaVA-Med.git"
             )
 
-        # Run LLaVA-Med inference
-        cmd = [
-            sys.executable,
-            str(inference_script),
-            "--model-path",
-            "microsoft/llava-med-v1.5-mistral-7b",
-            "--image-file",
-            image_path,
-            "--query",
-            prompt,
-            "--temperature",
-            "0.2",
-            "--max-new-tokens",
-            "256",
-        ]
+        sys.path.insert(0, str(llava_med_path))
 
-        logger.info(f"Running LLaVA-Med on {image_path}...")
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        from llava.model.builder import load_pretrained_model
+        from llava.mm_utils import get_model_name_from_path, process_images
+        from llava.conversation import conv_templates
+        from PIL import Image
+        import torch
 
-        if result.returncode != 0:
-            logger.error(f"LLaVA-Med error: {result.stderr}")
-            raise RuntimeError(f"LLaVA-Med inference failed: {result.stderr}")
+        model_path = "microsoft/llava-med-v1.5-mistral-7b"
 
-        # Parse output (last line is usually the response)
-        output_lines = result.stdout.strip().split("\n")
-        response = output_lines[-1] if output_lines else ""
+        # Load model if not already loaded
+        if not hasattr(self, "_llava_med_model"):
+            logger.info("Loading LLaVA-Med model...")
+            model_name = get_model_name_from_path(model_path)
+            # Detect device: mps (Mac) or cpu (fallback)
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+            logger.info(f"Using device: {device}")
+            tokenizer, model, image_processor, context_len = load_pretrained_model(
+                model_path=model_path,
+                model_base=None,
+                model_name=model_name,
+                device=device,  # Override CUDA default (device_map will be set internally)
+            )
+            self._llava_med_model = (tokenizer, model, image_processor, context_len)
+            logger.info("✓ LLaVA-Med loaded")
+        else:
+            tokenizer, model, image_processor, context_len = self._llava_med_model
 
-        logger.info(f"LLaVA-Med response: {response[:100]}...")
-        return response
+        # Load and process image
+        image = Image.open(image_path).convert("RGB")
+        image_tensor = process_images([image], image_processor, model.config)
+        image_tensor = image_tensor.to(model.device, dtype=torch.float16)
+
+        # Prepare conversation
+        conv = conv_templates["llava_v1"].copy()
+        conv.append_message(conv.roles[0], f"<image>\n{prompt}")
+        conv.append_message(conv.roles[1], None)
+        prompt_formatted = conv.get_prompt()
+
+        # Tokenize
+        input_ids = tokenizer([prompt_formatted], return_tensors="pt").input_ids.to(model.device)
+
+        # Generate
+        logger.info(f"Running LLaVA-Med inference on {Path(image_path).name}...")
+        with torch.inference_mode():
+            output_ids = model.generate(
+                input_ids,
+                images=image_tensor,
+                max_new_tokens=512,
+                use_cache=True,
+                do_sample=True,
+                temperature=0.2,
+            )
+
+        # Decode
+        outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+
+        return outputs
+
+    def _unload_llava_med(self) -> None:
+        """Unload LLaVA-Med model to free MPS memory before loading BioMistral."""
+        if hasattr(self, "_llava_med_model"):
+            logger.info("Unloading LLaVA-Med to free MPS memory...")
+            tokenizer, model, image_processor, context_len = self._llava_med_model
+
+            # Move model to CPU and delete
+            model.cpu()
+            del tokenizer, model, image_processor, context_len
+            del self._llava_med_model
+
+            # Clear MPS cache
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+
+            # Force garbage collection
+            import gc
+
+            gc.collect()
+
+            logger.info("✓ LLaVA-Med unloaded, MPS memory freed")
 
     def _run_llava_ollama(self, image_path: str, prompt: str) -> str:
         """Run llava-llama3 via Ollama.
@@ -295,7 +349,8 @@ class MedicalPipeline:
         logger.info(f"Stage 1 complete in {elapsed:.1f}s")
 
         return {
-            "findings": vision_output,
+            "findings_en": vision_output,  # For evaluation compatibility
+            "findings": vision_output,  # Legacy compatibility
             "model": self.vision_model_name,
             "rag_context": rag_context,
             "latency_s": elapsed,
@@ -315,6 +370,9 @@ class MedicalPipeline:
         """
         logger.info("=== STAGE 2: Medical Text Generation ===")
         start_time = time.time()
+
+        # Unload LLaVA-Med if it was used (free MPS memory before loading BioMistral)
+        self._unload_llava_med()
 
         # Load BioMistral
         self._load_biomistral()

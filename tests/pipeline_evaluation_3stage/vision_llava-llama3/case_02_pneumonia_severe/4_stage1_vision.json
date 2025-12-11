@@ -1,0 +1,28 @@
+{
+  "model": "llava-llama3",
+  "findings_en": "In this chest X-ray, there is no evidence of any acute cardiopulmonary abnormalities or significant opacities in either lung. The image shows a normal appearance for both lungs with clear bilaterality. Additionally, the diaphragm and heart are not visibly affected by any abnormal patterns or consolidations.",
+  "rag_context": "=== RELEVANT GUIDELINES ===\n- On PA chest X-ray, the RIGHT side appears on the LEFT of the image (patient facing you). Right lung has three lobes (upper, middle, lower); left lung has two lobes (upper, lower) with lingula. Always verify with cardiac apex (points left) and gastric bubble (left lower).\n- Interstitial pneumonia presents with reticular or ground-glass opacities, predominantly in lower lobes. Linear opacities and septal thickening may be present. Often viral etiology (influenza, COVID-19, RSV).",
+  "latency_s": 9.146201133728027,
+  "word_count": 46,
+  "sentence_count": 3,
+  "char_count": 308,
+  "medical_term_count": 11,
+  "medical_terms_found": [
+    "lung",
+    "pulmonary",
+    "diaphragm",
+    "bilateral",
+    "opacities",
+    "consolidation",
+    "clear",
+    "normal",
+    "abnormal",
+    "x-ray",
+    "chest"
+  ],
+  "medical_density": 0.2391304347826087,
+  "has_anatomy_description": true,
+  "has_findings_description": true,
+  "has_assessment": true,
+  "structural_completeness": 1.0
+}
