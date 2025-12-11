@@ -13,6 +13,7 @@ from src.core.diagnosis import (
     diagnose_with_visualization,
     load_cnn_model,
 )
+from src.core.medical_pipeline import MedicalPipeline
 from src.core.visualization import find_last_conv_layer, find_resnet_base
 from src.db import (
     get_clinical_description,
@@ -45,6 +46,13 @@ print("Finding ResNet base and last conv layer...")
 resnet_base = find_resnet_base(cnn_model)
 last_conv_layer = find_last_conv_layer(resnet_base)
 print(f"✓ Models loaded. Grad-CAM target: {last_conv_layer.name}")
+
+# Initialize medical pipeline (lazy-loaded models)
+print("Initializing medical pipeline...")
+medical_pipeline = MedicalPipeline(
+    use_rag=True, vision_model="llava-llama3", enable_translation=False
+)
+print("✓ Medical pipeline initialized (2-stage: Vision + Medical)")
 
 
 @app.route("/health", methods=["GET"])
@@ -329,6 +337,135 @@ def get_recent_diagnoses_list():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/analyze", methods=["POST"])
+def analyze_xray():
+    """
+    Complete medical analysis with 2-stage LLM pipeline (Vision + Medical).
+
+    POST /analyze
+    Form data:
+        - image (file): X-ray image
+        - translate (optional): "true" to enable Stage 3 PT-BR translation
+
+    Returns: {
+        "success": true,
+        "diagnosis_id": 123,
+        "cnn_diagnosis": {
+            "prediction": "PNEUMONIA",
+            "confidence": 0.89
+        },
+        "stage1_vision": {
+            "findings_en": "Bilateral opacities...",
+            "model": "llava-llama3",
+            "latency_s": 65.3
+        },
+        "stage2_medical": {
+            "report_en": "The chest X-ray reveals...",
+            "model": "BioMistral-7B",
+            "latency_s": 61.8
+        },
+        "final_report_en": "The chest X-ray reveals...",
+        "total_latency_s": 128.1,
+        "timestamp": "2024-01-15 10:30:00"
+    }
+
+    With translate=true, also includes:
+        "stage3_translation": {...},
+        "final_report_pt_br": "..."
+    """
+    if "image" not in request.files:
+        return jsonify({"success": False, "error": "No image provided"}), 400
+
+    temp_path = None
+    try:
+        # Save uploaded file
+        image_file = request.files["image"]
+        temp_path = save_uploaded_file(image_file, config.temp_dir)
+
+        # Validate image format
+        allowed_extensions = {".jpg", ".jpeg", ".png"}
+        filename = image_file.filename or "unknown.jpg"
+        file_ext = os.path.splitext(filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Invalid image format. Allowed: {', '.join(allowed_extensions)}",
+                    }
+                ),
+                400,
+            )
+
+        # Compute image hash for deduplication
+        with open(temp_path, "rb") as f:
+            image_hash = hashlib.sha256(f.read()).hexdigest()
+
+        # Stage 0: CNN diagnosis
+        print(f"[/analyze] Running CNN diagnosis on {image_file.filename}...")
+        diagnosis, confidence = diagnose_from_path(cnn_model, temp_path)
+
+        cnn_diagnosis = {"prediction": diagnosis, "confidence": float(confidence)}
+
+        # Save CNN diagnosis to database
+        diagnosis_id = save_diagnosis(
+            image_hash=image_hash,
+            diagnosis=diagnosis,
+            confidence=confidence,
+            metadata={"endpoint": "/analyze", "filename": image_file.filename},
+        )
+
+        # Check if translation is requested
+        enable_translation = request.args.get("translate", "false").lower() == "true"
+        if enable_translation:
+            medical_pipeline.enable_translation = True
+            print("[/analyze] Translation enabled (Stage 3 will run)")
+        else:
+            medical_pipeline.enable_translation = False
+            print("[/analyze] Translation disabled (2-stage pipeline)")
+
+        # Run medical pipeline (Stages 1-2, optional 3)
+        print(f"[/analyze] Running medical pipeline...")
+        result = medical_pipeline.analyze_xray(temp_path, cnn_diagnosis)
+
+        if not result["success"]:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Pipeline failed: {result.get('error', 'Unknown error')}",
+                    }
+                ),
+                500,
+            )
+
+        # Add diagnosis_id to result
+        result["diagnosis_id"] = diagnosis_id
+
+        # Save clinical description to database
+        final_report = result.get("final_report_pt_br") or result.get("final_report_en")
+        if final_report:
+            save_clinical_description(diagnosis_id, final_report, diagnosis, confidence)
+
+        print(
+            f"[/analyze] ✅ Analysis complete in {result['total_latency_s']:.1f}s "
+            f"(diagnosis_id: {diagnosis_id})"
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Error in /analyze: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    finally:
+        if temp_path:
+            cleanup_file(temp_path)
+
+
 # Backward compatibility - old Portuguese endpoints
 @app.route("/diagnosticar_pneumonia", methods=["POST"])
 def diagnosticar_pneumonia_legacy():
@@ -354,6 +491,8 @@ if __name__ == "__main__":
 
     # Run app
     print(f"\n🚀 Starting PneumoFinder API on port {config.api_port}...")
+    print(f"   - Medical analysis: POST /analyze (2-stage pipeline, ~128s)")
+    print(f"   - With translation: POST /analyze?translate=true (3-stage, ~232s)")
     print(f"   - Simple diagnosis: POST /diagnose")
     print(f"   - With explanation: POST /diagnose/explained")
     print(f"   - Health check: GET /health")
