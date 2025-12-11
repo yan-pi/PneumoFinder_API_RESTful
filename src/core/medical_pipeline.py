@@ -1,9 +1,12 @@
-"""Medical pipeline orchestrator for 3-stage LLM analysis with RAG.
+"""Medical pipeline orchestrator for 2-stage LLM analysis with RAG.
 
-This module orchestrates the complete medical analysis pipeline:
+This module orchestrates the medical analysis pipeline:
 1. Stage 1: Vision analysis (llava-llama3 via Ollama) → English findings
 2. Stage 2: Medical text generation (BioMistral-7B) → Professional English report
-3. Stage 3: PT-BR translation (Sabiá-7B) → Natural Portuguese report
+3. Stage 3 (OPTIONAL): PT-BR translation (Sabiá-7B) → Portuguese report (disabled by default)
+
+Stage 3 is disabled by default because translation adds ~150s latency.
+Enable with: MedicalPipeline(enable_translation=True)
 
 All stages are grounded with RAG context to prevent hallucinations.
 
@@ -12,7 +15,7 @@ Memory Management (M4 Pro 24GB):
 - Ollama (Stage 1): Auto-unloads after completion → ~3GB baseline
 - HuggingFace models (Stages 2-3): Intelligent device_map splits across MPS+CPU/RAM
 - MPS constraint: ~10GB max single allocation (models @ 13GB need splitting)
-- Peak memory: ~20GB (model layers + inference overhead)
+- Peak memory: ~20GB with translation, ~13GB without
 - Design: Industry-standard pattern (HuggingFace Accelerate approach)
 """
 
@@ -46,6 +49,7 @@ class MedicalPipeline:
         use_rag: bool = True,
         vision_model: str = "llava-med",  # "llava-med" or "llava-llama3"
         device: str = "mps",  # "mps", "cuda", or "cpu"
+        enable_translation: bool = False,  # Stage 3 disabled by default (too slow)
     ) -> None:
         """Initialize medical pipeline.
 
@@ -53,10 +57,12 @@ class MedicalPipeline:
             use_rag: Whether to use RAG context grounding
             vision_model: Vision model to use ("llava-med" or "llava-llama3")
             device: Device for model inference
+            enable_translation: Whether to enable Stage 3 PT-BR translation (slow: ~150s)
         """
         self.use_rag = use_rag
         self.vision_model_name = vision_model
         self.device = device
+        self.enable_translation = enable_translation
 
         # Lazy-loaded models
         self._rag_retriever = None
@@ -66,7 +72,10 @@ class MedicalPipeline:
         self._sabia_tokenizer = None
         self._llava_med_loaded = False
 
-        logger.info(f"MedicalPipeline initialized (RAG: {use_rag}, Vision: {vision_model})")
+        logger.info(
+            f"MedicalPipeline initialized (RAG: {use_rag}, Vision: {vision_model}, "
+            f"Translation: {enable_translation})"
+        )
 
     @property
     def rag_retriever(self) -> MedicalRetriever:
@@ -416,16 +425,16 @@ class MedicalPipeline:
         Memory Management:
         - Stage 1: Ollama (auto-unloads)
         - Stage 2: BioMistral (load → generate → unload)
-        - Stage 3: Sabiá (load → generate → unload)
+        - Stage 3 (optional): Sabiá (load → generate → unload) - disabled by default
 
-        Peak memory: ~16GB (well under 21GB M4 Pro limit)
+        Peak memory: ~16GB with translation, ~13GB without
 
         Args:
             image_path: Path to chest X-ray image
             cnn_diagnosis: Optional CNN classification result
 
         Returns:
-            Complete analysis results including all 3 stages
+            Complete analysis results (2 or 3 stages depending on enable_translation)
         """
         logger.info(f"\n{'=' * 80}\nAnalyzing X-ray: {image_path}\n{'=' * 80}")
 
@@ -448,17 +457,22 @@ class MedicalPipeline:
             medical_result = self.stage2_medical_text(vision_result, cnn_diagnosis)
             logger.info("💾 Memory: Stage 2 complete (BioMistral loaded)")
 
-            # ✅ CRITICAL: Unload BioMistral before loading Sabiá
+            # ✅ CRITICAL: Unload BioMistral before Stage 3 (or final cleanup)
             self._unload_model("biomistral")
-            logger.info("💾 Memory: BioMistral unloaded, ready for Stage 3")
+            logger.info("💾 Memory: BioMistral unloaded")
 
-            # Stage 3: PT-BR translation (Sabiá)
-            translation_result = self.stage3_translation(medical_result)
-            logger.info("💾 Memory: Stage 3 complete (Sabiá loaded)")
+            # Stage 3: PT-BR translation (OPTIONAL - disabled by default, ~150s)
+            translation_result = None
+            if self.enable_translation:
+                logger.info("💾 Memory: Starting Stage 3 (translation enabled)")
+                translation_result = self.stage3_translation(medical_result)
+                logger.info("💾 Memory: Stage 3 complete (Sabiá loaded)")
 
-            # ✅ Cleanup: Unload Sabiá for next run
-            self._unload_model("sabia")
-            logger.info("💾 Memory: Sabiá unloaded, pipeline cleanup complete")
+                # ✅ Cleanup: Unload Sabiá for next run
+                self._unload_model("sabia")
+                logger.info("💾 Memory: Sabiá unloaded, pipeline cleanup complete")
+            else:
+                logger.info("⏭️  Skipping Stage 3 (translation disabled for speed)")
 
             # Combine results
             total_latency = time.time() - pipeline_start
@@ -469,14 +483,20 @@ class MedicalPipeline:
                 "cnn_diagnosis": cnn_diagnosis,
                 "stage1_vision": vision_result,
                 "stage2_medical": medical_result,
-                "stage3_translation": translation_result,
-                "final_report_pt_br": translation_result["report_pt_br"],
+                "final_report_en": medical_result["report_en"],
                 "total_latency_s": total_latency,
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
+            # Add translation if enabled
+            if translation_result:
+                result["stage3_translation"] = translation_result
+                result["final_report_pt_br"] = translation_result["report_pt_br"]
+
             logger.info(f"\n{'=' * 80}\nPipeline complete in {total_latency:.1f}s\n{'=' * 80}")
-            logger.info(f"\nFINAL REPORT (PT-BR):\n{result['final_report_pt_br']}\n")
+            logger.info(f"\nFINAL REPORT (EN):\n{result['final_report_en']}\n")
+            if translation_result:
+                logger.info(f"\nFINAL REPORT (PT-BR):\n{result['final_report_pt_br']}\n")
 
             return result
 
