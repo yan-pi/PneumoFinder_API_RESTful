@@ -9,9 +9,10 @@ All stages are grounded with RAG context to prevent hallucinations.
 
 Memory Management (M4 Pro 24GB):
 - Sequential loading: Only 1 HuggingFace model in memory at a time
-- Ollama (Stage 1): Auto-unloads after completion
-- HuggingFace models (Stages 2-3): Explicit unload between stages
-- Peak memory: ~16GB (BioMistral/Sabiá @ 13GB each)
+- Ollama (Stage 1): Auto-unloads after completion → ~3GB baseline
+- HuggingFace models (Stages 2-3): Intelligent device_map splits across MPS+CPU/RAM
+- MPS constraint: ~10GB max single allocation (models @ 13GB need splitting)
+- Peak memory: ~20GB (model layers + inference overhead)
 - Design: Industry-standard pattern (HuggingFace Accelerate approach)
 """
 
@@ -76,39 +77,48 @@ class MedicalPipeline:
         return self._rag_retriever
 
     def _load_biomistral(self) -> None:
-        """Lazy-load BioMistral model with CPU offloading."""
+        """Lazy-load BioMistral model with intelligent device mapping.
+
+        Strategy: MPS has ~10GB single allocation limit, but BioMistral @ FP16 = 13GB.
+        Use device_map="auto" to split across MPS + CPU/RAM intelligently.
+        Since we unload models between stages, this avoids memory conflicts.
+        """
         if self._biomistral_model is None:
-            logger.info("Loading BioMistral-7B (with CPU offloading for memory efficiency)...")
+            logger.info("Loading BioMistral-7B with intelligent device mapping...")
             model_id = "BioMistral/BioMistral-7B"
 
             self._biomistral_tokenizer = AutoTokenizer.from_pretrained(model_id)
             self._biomistral_model = AutoModelForCausalLM.from_pretrained(
                 model_id,
                 torch_dtype=torch.float16,
-                device_map="auto",
+                device_map="auto",  # Let transformers split intelligently
                 low_cpu_mem_usage=True,
-                offload_folder="./cache/offload",
-                offload_state_dict=True,
+                max_memory={"mps": "10GiB", "cpu": "16GiB"},  # MPS limit + CPU fallback
             )
             logger.info(
                 f"BioMistral-7B loaded (device_map: {self._biomistral_model.hf_device_map})"
             )
 
     def _load_sabia(self) -> None:
-        """Lazy-load Sabiá model with CPU offloading."""
+        """Lazy-load Sabiá model with intelligent device mapping.
+
+        Strategy: MPS has ~10GB single allocation limit, but Sabiá @ FP16 = 13GB.
+        Use device_map="auto" to split across MPS + CPU/RAM intelligently.
+        Since we unload models between stages, this avoids memory conflicts.
+        """
         if self._sabia_model is None:
-            logger.info("Loading Sabiá-7B (with CPU offloading for memory efficiency)...")
+            logger.info("Loading Sabiá-7B with intelligent device mapping...")
             model_id = "maritaca-ai/sabia-7b"
 
             self._sabia_tokenizer = AutoTokenizer.from_pretrained(model_id)
             self._sabia_model = AutoModelForCausalLM.from_pretrained(
                 model_id,
                 torch_dtype=torch.float16,
-                device_map="auto",
+                device_map="auto",  # Let transformers split intelligently
                 low_cpu_mem_usage=True,
-                offload_folder="./cache/offload",
-                offload_state_dict=True,
+                max_memory={"mps": "10GiB", "cpu": "16GiB"},  # MPS limit + CPU fallback
             )
+            logger.info(f"Sabiá-7B loaded (device_map: {self._sabia_model.hf_device_map})")
             logger.info(f"Sabiá-7B loaded (device_map: {self._sabia_model.hf_device_map})")
 
     def _unload_model(self, model_name: str) -> None:
