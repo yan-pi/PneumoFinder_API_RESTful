@@ -2,7 +2,7 @@
 
 import cv2
 import numpy as np
-from tensorflow.keras.models import load_model
+import tensorflow as tf
 
 from src.utils.image_utils import preprocess_image
 
@@ -17,9 +17,8 @@ def load_cnn_model(model_path: str):
     Returns:
         Loaded Keras model
     """
-    import tensorflow as tf
-
-    model = load_model(model_path)
+    # Use TensorFlow's native Keras (not tf_keras) for compatibility
+    model = tf.keras.models.load_model(model_path, compile=False)
 
     # Force initialization with dummy prediction
     dummy = tf.zeros((1, 224, 224, 3))
