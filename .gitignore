@@ -59,6 +59,14 @@ uv.lock
 temp/
 test_outputs/
 
+# HuggingFace model offload cache (large temporary files)
+cache/
+cache/offload/
+
+# Pipeline test results (regenerate after tests)
+results/
+results/pipeline_tests/
+
 # Data directories (sample data tracked in data/samples/)
 data/samples/*.jpeg
 data/samples/*.jpg
