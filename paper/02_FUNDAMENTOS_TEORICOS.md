@@ -6,7 +6,9 @@
 - [2. Transfer Learning e ResNet50](#2-transfer-learning-e-resnet50)
 - [3. Técnicas de Explicabilidade](#3-técnicas-de-explicabilidade)
 - [4. Modelos de Linguagem Multimodais](#4-modelos-de-linguagem-multimodais)
-- [5. Embeddings e Busca Semântica](#5-embeddings-e-busca-semântica)
+- [5. LLMs Especializados em Medicina](#5-llms-especializados-em-medicina)
+- [6. Retrieval-Augmented Generation (RAG)](#6-retrieval-augmented-generation-rag)
+- [7. Embeddings e Busca Semântica](#7-embeddings-e-busca-semântica)
 
 ---
 
@@ -326,35 +328,279 @@ Image (224x224)                    Text Prompt
 - ❌ Performance ligeiramente inferior (~90% da GPT-4V)
 - ❌ Latência maior (10-15s vs 2-3s)
 
-### 4.4 Ollama
+---
 
-**Ollama** é um servidor que simplifica deployment de LLMs locais:
+## 5. LLMs Especializados em Medicina
 
-```bash
-# Instala Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+### 5.1 A Necessidade de Modelos Médicos
 
-# Baixa modelo LLaVA 7B
-ollama pull llava:7b
+LLMs generalistas (GPT, LLaMA, Vicuna) apresentam limitações em domínios médicos:
 
-# Inicia servidor
-ollama serve  # Roda na porta 11434
+| Problema | Exemplo | Impacto |
+|----------|---------|---------|
+| **Terminologia imprecisa** | "Mancha branca" vs "consolidação" | Comunicação inadequada |
+| **Hallucinations** | Inventa achados não presentes | Risco clínico |
+| **Falta de grounding** | Não cita guidelines | Baixa confiabilidade |
+| **Generalização excessiva** | "Pode ser pneumonia" | Não-acionável |
+
+**Solução:** Modelos treinados especificamente em dados médicos.
+
+### 5.2 LLaVA-Med
+
+**LLaVA-Med** (Li et al., 2023) - Microsoft Research
+
+LLaVA-Med é uma versão do LLaVA especializada em imagens médicas através de treinamento em datasets biomédicos.
+
+| Característica | Valor |
+|---------------|-------|
+| **Modelo** | `microsoft/llava-med-v1.5-mistral-7b` |
+| **Base LLM** | Mistral-7B (não Vicuna) |
+| **Vision Encoder** | CLIP ViT-L/14 |
+| **Dataset de treino** | 600K+ pares imagem-texto médicos |
+| **Especialidades** | Radiologia, patologia, dermatologia, oftalmologia |
+
+**Treinamento em 3 estágios:**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│           LLaVA-Med Training Pipeline                       │
+└────────────────────────────────────────────────────────────┘
+
+Stage 1: Biomedical Figure-Caption Alignment
+├─→ Dataset: PMC-15M (figuras de papers médicos)
+├─→ Objetivo: Alinhar visão com vocabulário médico
+└─→ Resultado: Modelo entende anatomia básica
+
+Stage 2: Medical Visual Question Answering
+├─→ Dataset: VQA-RAD, PathVQA, SLAKE
+├─→ Objetivo: Responder perguntas sobre imagens médicas
+└─→ Resultado: Modelo descreve achados específicos
+
+Stage 3: Instruction Tuning Médico
+├─→ Dataset: 60K instruções médicas (GPT-4 generated)
+├─→ Objetivo: Seguir instruções clínicas complexas
+└─→ Resultado: Modelo gera laudos profissionais
 ```
 
-**API REST simples:**
+**Vantagens sobre LLaVA genérico:**
 
-```bash
-curl http://localhost:11434/api/generate \
-  -d '{
-    "model": "llava:7b",
-    "prompt": "Describe this medical image",
-    "images": ["base64_encoded_image"]
-  }'
+| Aspecto | LLaVA 7B | LLaVA-Med |
+|---------|---------|-----------|
+| Vocabulário | "White area" | "Consolidation" |
+| Anatomia | "Lung" | "Right lower lobe" |
+| Achados | Vago | Específico (air bronchogram) |
+| Hallucinations | Frequentes | Reduzidas |
+| Acurácia (nosso teste) | ~70% | **80%** |
+
+### 5.3 BioMistral-7B
+
+**BioMistral** (Labrak et al., 2024) - Especialização biomédica do Mistral-7B
+
+| Característica | Valor |
+|---------------|-------|
+| **Modelo** | `BioMistral/BioMistral-7B` |
+| **Base** | Mistral-7B-v0.1 |
+| **Treinamento adicional** | PubMed abstracts, guidelines médicas |
+| **Parâmetros** | 7.24B |
+| **Contexto** | 32K tokens |
+
+**Por que BioMistral para geração de laudos?**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│           Comparação de Saída de Texto                      │
+└────────────────────────────────────────────────────────────┘
+
+Input: "Describe findings: bilateral opacities in lower lobes"
+
+Mistral-7B (genérico):
+"There are some white areas in the lungs that could indicate
+an infection or other problem."
+
+BioMistral-7B (especializado):
+"Findings: Bilateral airspace opacities in the lower lobes
+with air bronchograms, suggestive of community-acquired
+pneumonia. No pleural effusion. Heart size is normal.
+Impression: Pneumonia. Clinical correlation recommended."
+```
+
+**Vantagens:**
+
+- ✅ Formato de laudo radiológico (Findings / Impression)
+- ✅ Terminologia padronizada (ACR guidelines)
+- ✅ Achados negativos relevantes ("No pleural effusion")
+- ✅ Recomendações clínicas ("Clinical correlation")
+
+### 5.4 Pipeline de 2 Estágios no PneumoFinder
+
+O PneumoFinder combina LLaVA-Med e BioMistral em pipeline sequencial:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│              Pipeline de 2 Estágios                         │
+└────────────────────────────────────────────────────────────┘
+
+Radiografia de Tórax
+        │
+        ▼
+┌──────────────────────────────────────┐
+│ STAGE 1: Análise Visual              │
+│ Modelo: LLaVA-Med                    │
+│                                       │
+│ Input: Imagem + RAG context          │
+│ Output: Descrição de achados visuais │
+│         "Bilateral consolidations    │
+│          in lower lobes..."          │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│ STAGE 2: Síntese de Laudo            │
+│ Modelo: BioMistral-7B                │
+│                                       │
+│ Input: Achados Stage 1 + CNN + RAG   │
+│ Output: Laudo radiológico profissional│
+│         "Findings: ... Impression: ...│
+│          Clinical correlation..."    │
+└──────────────────────────────────────┘
+```
+
+**Justificativa da separação:**
+
+1. **Especialização:** LLaVA-Med é melhor em visão, BioMistral em texto
+2. **Memória:** Carregamento sequencial permite rodar em 24GB
+3. **Qualidade:** Cada modelo faz o que sabe fazer melhor
+
+---
+
+## 6. Retrieval-Augmented Generation (RAG)
+
+### 6.1 O Problema das Hallucinations
+
+LLMs podem "inventar" informações que parecem corretas mas são falsas:
+
+```
+Prompt: "Describe the pneumonia in this X-ray"
+
+Hallucination:
+"The X-ray shows Legionella pneumonia with characteristic
+cavitation and pleural involvement..."  ← INVENTADO!
+
+Problema: O modelo não sabe o que REALMENTE está na imagem
+```
+
+### 6.2 Solução: RAG (Retrieval-Augmented Generation)
+
+**RAG** (Lewis et al., 2020) combina recuperação de conhecimento com geração:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    RAG Pipeline                             │
+└────────────────────────────────────────────────────────────┘
+
+Query: "pneumonia findings"
+        │
+        ▼
+┌──────────────────────────────────────┐
+│ 1. RETRIEVAL                         │
+│                                       │
+│ Vector Store (ChromaDB)              │
+│ ┌─────────────────────────────────┐  │
+│ │ 31 Medical Guidelines:          │  │
+│ │ - ACR Appropriateness Criteria  │  │
+│ │ - Fleischner Society 2017       │  │
+│ │ - WHO Pneumonia Guidelines      │  │
+│ └─────────────────────────────────┘  │
+│                                       │
+│ Similarity Search → Top-K relevantes │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│ 2. AUGMENTATION                      │
+│                                       │
+│ Prompt = Original + Retrieved Context│
+│                                       │
+│ "Describe findings in this X-ray.    │
+│  REFERENCE:                          │
+│  [Fleischner 2017] Lobar consolida- │
+│  tion with air bronchograms suggests │
+│  bacterial pneumonia..."             │
+└──────────────┬───────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│ 3. GENERATION                        │
+│                                       │
+│ LLM gera resposta GROUNDED nos       │
+│ documentos recuperados               │
+│                                       │
+│ Output: "This X-ray shows lobar      │
+│ consolidation consistent with        │
+│ bacterial pneumonia (per Fleischner  │
+│ 2017 guidelines)."                   │
+└──────────────────────────────────────┘
+```
+
+### 6.3 Base de Conhecimento do PneumoFinder
+
+| Coleção | Documentos | Conteúdo |
+|---------|-----------|----------|
+| **medical_guidelines** | 31 | Guidelines ACR, Fleischner, WHO |
+| **sample_reports** | 50+ | Laudos exemplo (normal/pneumonia) |
+| **medical_terminology** | 200+ | Termos técnicos EN↔PT |
+
+**Exemplo de guideline:**
+
+```
+[Fleischner Society 2017 - Pneumonia Patterns]
+
+Lobar consolidation with air bronchograms typically indicates
+bacterial pneumonia, most commonly Streptococcus pneumoniae.
+
+Interstitial pattern with ground-glass opacities suggests
+viral or atypical pneumonia (Mycoplasma, Chlamydia).
+
+Cavitation should raise suspicion for anaerobic infection,
+tuberculosis, or necrotizing pneumonia.
+```
+
+### 6.4 Filtragem por Relevância
+
+ChromaDB usa distância L2 para similaridade. O PneumoFinder implementa thresholds:
+
+```python
+# src/rag/retriever.py
+
+DEFAULT_RELEVANCE_THRESHOLD = 1.2  # Max L2 distance
+STRICT_RELEVANCE_THRESHOLD = 0.8   # For high-precision
+
+def _filter_by_relevance(self, results, threshold):
+    """Remove resultados com baixa similaridade."""
+    return [r for r in results if r["distance"] <= threshold]
+```
+
+**Benefícios:**
+
+- ✅ Evita contexto irrelevante no prompt
+- ✅ Reduz ruído que pode confundir o LLM
+- ✅ Melhora qualidade das respostas
+
+### 6.5 RAG no Pipeline de 2 Estágios
+
+```
+Stage 1 (LLaVA-Med):
+├─→ RAG: Guidelines de radiologia (como descrever achados)
+└─→ Output: Descrição visual precisa
+
+Stage 2 (BioMistral):
+├─→ RAG: Guidelines + Sample Reports (formato de laudo)
+└─→ Output: Laudo profissional padronizado
 ```
 
 ---
 
-## 5. Embeddings e Busca Semântica
+## 7. Embeddings e Busca Semântica
 
 ### 5.1 Representação Vetorial de Texto
 
@@ -466,76 +712,87 @@ query = "consolidation in lower right lung field"
 
 ---
 
-## 6. Integração dos Conceitos
+## 8. Integração dos Conceitos
 
-### 6.1 Pipeline Completo do PneumoFinder
+### 8.1 Pipeline Completo do PneumoFinder v3
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│           Fundamentos Teóricos Integrados                 │
-└──────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│           Fundamentos Teóricos Integrados (2 Estágios)          │
+└────────────────────────────────────────────────────────────────┘
 
-Radiografia
-    ↓
-┌──────────────┐
-│ CNN          │ → Transfer Learning (ResNet50)
-│ (Seção 1, 2) │ → Classificação: PNEUMONIA (87%)
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│ Grad-CAM     │ → Explicabilidade Visual (Seção 3)
-│ (Seção 3)    │ → Heatmap + Overlay
-└──────┬───────┘
-       │
-       ▼
-┌───────────────┐
-│ LLM Multimodal│ → CLIP + Vicuna (Seção 4)
-│ (Seção 4)     │ → Descrição clínica em linguagem natural
-└──────┬────────┘
-       │
-       ▼
-┌───────────────┐
-│ Embeddings    │ → Sentence-Transformers (Seção 5)
-│ (Seção 5)     │ → Busca semântica no ChromaDB
-└───────────────┘
+Radiografia de Tórax
+        │
+        ▼
+┌────────────────────────────────────────┐
+│ CNN + Grad-CAM                         │ → Transfer Learning (ResNet50)
+│ (Seções 1, 2, 3)                       │ → Classificação + Heatmap
+└───────────────┬────────────────────────┘
+                │
+                ▼
+┌────────────────────────────────────────┐
+│ RAG (Seção 6)                          │ → Recupera guidelines relevantes
+│                                         │ → ChromaDB + 31 documentos
+└───────────────┬────────────────────────┘
+                │
+                ▼
+┌────────────────────────────────────────┐
+│ STAGE 1: LLaVA-Med (Seção 5.2)         │ → Vision model médico
+│                                         │ → Descrição visual + RAG
+└───────────────┬────────────────────────┘
+                │
+                ▼
+┌────────────────────────────────────────┐
+│ STAGE 2: BioMistral (Seção 5.3)        │ → Text model biomédico
+│                                         │ → Laudo profissional + RAG
+└───────────────┬────────────────────────┘
+                │
+                ▼
+┌────────────────────────────────────────┐
+│ Embeddings + Busca (Seção 7)           │ → Sentence-Transformers
+│                                         │ → ChromaDB HNSW
+└────────────────────────────────────────┘
 ```
 
-### 6.2 Contribuições Teóricas
+### 8.2 Contribuições Teóricas
 
 Este trabalho combina múltiplas técnicas estado-da-arte:
 
-1. **CNN (Deep Learning clássico)** → Alta acurácia
+1. **CNN (Deep Learning clássico)** → Alta acurácia (87.3%)
 2. **Grad-CAM (XAI)** → Explicabilidade visual
-3. **LLM Multimodal** → Explicações em linguagem natural
-4. **Embeddings vetoriais** → Busca semântica inteligente
+3. **LLMs Médicos Especializados** → LLaVA-Med + BioMistral
+4. **RAG (Retrieval-Augmented Generation)** → Grounding com guidelines
+5. **Embeddings vetoriais** → Busca semântica inteligente
 
-**Novidade:** Integração end-to-end dessas técnicas em sistema unificado para diagnóstico médico explicável.
-
----
-
-## 7. Trabalhos Relacionados
-
-### 7.1 Comparação com Estado-da-Arte
-
-| Trabalho                            | CNN         | Explicabilidade | LLM           | Busca Semântica | Open-Source |
-| ----------------------------------- | ----------- | --------------- | ------------- | --------------- | ----------- |
-| **Rajpurkar et al. (2018) CheXNet** | ✅ DenseNet | ❌              | ❌            | ❌              | ❌          |
-| **Irvin et al. (2019) CheXpert**    | ✅ DenseNet | ❌              | ❌            | ❌              | ✅ (Dados)  |
-| **Selvaraju et al. (2017)**         | ✅ VGG      | ✅ Grad-CAM     | ❌            | ❌              | ✅          |
-| **Liu et al. (2023) LLaVA**         | N/A         | N/A             | ✅ Multimodal | ❌              | ✅          |
-| **PneumoFinder (Este trabalho)**    | ✅ ResNet50 | ✅ Grad-CAM     | ✅ LLaVA 7B   | ✅ ChromaDB     | ✅ Completo |
-
-### 7.2 Diferenciais
-
-- ✅ Único com integração completa CNN + Grad-CAM + LLM + Busca Semântica
-- ✅ Deployment local (privacidade garantida)
-- ✅ Open-source com Docker (reprodutível)
-- ✅ Foco em explicabilidade prática para uso clínico
+**Novidade:** Pipeline de 2 estágios com modelos biomédicos especializados e RAG para diagnóstico médico explicável e confiável.
 
 ---
 
-## 8. Referências
+## 9. Trabalhos Relacionados
+
+### 9.1 Comparação com Estado-da-Arte
+
+| Trabalho                            | CNN         | Explicabilidade | LLM           | RAG | Open-Source |
+| ----------------------------------- | ----------- | --------------- | ------------- | --- | ----------- |
+| **Rajpurkar et al. (2018) CheXNet** | ✅ DenseNet | ❌              | ❌            | ❌  | ❌          |
+| **Irvin et al. (2019) CheXpert**    | ✅ DenseNet | ❌              | ❌            | ❌  | ✅ (Dados)  |
+| **Selvaraju et al. (2017)**         | ✅ VGG      | ✅ Grad-CAM     | ❌            | ❌  | ✅          |
+| **Liu et al. (2023) LLaVA**         | N/A         | N/A             | ✅ Genérico   | ❌  | ✅          |
+| **Li et al. (2023) LLaVA-Med**      | N/A         | N/A             | ✅ Médico     | ❌  | ✅          |
+| **Labrak et al. (2024) BioMistral** | N/A         | N/A             | ✅ Biomédico  | ❌  | ✅          |
+| **PneumoFinder v3 (Este trabalho)** | ✅ ResNet50 | ✅ Grad-CAM     | ✅ LLaVA-Med + BioMistral | ✅ 31 guidelines | ✅ Completo |
+
+### 9.2 Diferenciais
+
+- ✅ **Pipeline especializado:** LLaVA-Med (visão) + BioMistral (texto)
+- ✅ **RAG grounding:** 31 guidelines médicas para evitar hallucinations
+- ✅ **Deployment local:** Privacidade garantida, sem API externa
+- ✅ **Apple Silicon:** Funciona em M4 Pro 24GB (device_map="auto")
+- ✅ **Open-source:** Código completo reprodutível
+
+---
+
+## 10. Referências
 
 1. **He et al. (2015).** "Deep Residual Learning for Image Recognition". CVPR 2016.
 
@@ -545,13 +802,21 @@ Este trabalho combina múltiplas técnicas estado-da-arte:
 
 4. **Liu et al. (2023).** "Visual Instruction Tuning". NeurIPS 2023.
 
-5. **Rajpurkar et al. (2018).** "CheXNet: Radiologist-Level Pneumonia Detection on Chest X-Rays". arXiv:1711.05225.
+5. **Li et al. (2023).** "LLaVA-Med: Training a Large Language-and-Vision Assistant for Biomedicine in One Day". NeurIPS 2023.
 
-6. **Reimers & Gurevych (2019).** "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks". EMNLP 2019.
+6. **Labrak et al. (2024).** "BioMistral: A Collection of Open-Source Pretrained Large Language Models for Medical Domains". arXiv:2402.10373.
 
-7. **Malkov & Yashunin (2018).** "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs". IEEE TPAMI.
+7. **Lewis et al. (2020).** "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks". NeurIPS 2020.
+
+8. **Jiang et al. (2023).** "Mistral 7B". arXiv:2310.06825.
+
+9. **Rajpurkar et al. (2018).** "CheXNet: Radiologist-Level Pneumonia Detection on Chest X-Rays". arXiv:1711.05225.
+
+10. **Reimers & Gurevych (2019).** "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks". EMNLP 2019.
+
+11. **Malkov & Yashunin (2018).** "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs". IEEE TPAMI.
 
 ---
 
-**Documento elaborado para TCC/Monografia - PneumoFinder v2.0**  
-**Última atualização:** Dezembro 2026
+**Documento atualizado para TCC - PneumoFinder v3.0**
+**Última atualização:** Fevereiro 2026

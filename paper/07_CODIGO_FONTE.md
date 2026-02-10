@@ -4,10 +4,10 @@
 - [Visão Geral](#visão-geral)
 - [Apêndice A: Módulo de Diagnóstico (CNN)](#apêndice-a-módulo-de-diagnóstico-cnn)
 - [Apêndice B: Módulo de Visualização (Grad-CAM)](#apêndice-b-módulo-de-visualização-grad-cam)
-- [Apêndice C: Integração com LLM](#apêndice-c-integração-com-llm)
-- [Apêndice D: Gerenciamento de Banco de Dados](#apêndice-d-gerenciamento-de-banco-de-dados)
-- [Apêndice E: Endpoints da API](#apêndice-e-endpoints-da-api)
-- [Apêndice F: Dockerfile e Docker Compose](#apêndice-f-dockerfile-e-docker-compose)
+- [Apêndice C: Pipeline de 2 Estágios (LLaVA-Med + BioMistral)](#apêndice-c-pipeline-de-2-estágios-llava-med--biomistral)
+- [Apêndice D: Sistema RAG](#apêndice-d-sistema-rag)
+- [Apêndice E: Prompt Engineering Médico](#apêndice-e-prompt-engineering-médico)
+- [Apêndice F: Endpoints da API](#apêndice-f-endpoints-da-api)
 - [Apêndice G: Configuração](#apêndice-g-configuração)
 
 ---
@@ -333,372 +333,608 @@ def generate_gradcam(
 
 ---
 
-## Apêndice C: Integração com LLM
+## Apêndice C: Pipeline de 2 Estágios (LLaVA-Med + BioMistral)
 
-### Arquivo: `src/core/clinical_description.py`
+### Arquivo: `src/core/medical_pipeline.py`
 
-Geração de descrições clínicas via LLaVA (Ollama API).
+Orquestrador do pipeline de análise médica com 2 estágios:
+1. **Estágio 1 (Vision):** LLaVA-Med analisa a radiografia e extrai achados
+2. **Estágio 2 (Medical Text):** BioMistral-7B sintetiza laudo médico profissional
 
 ```python
-"""
-Geração de descrições clínicas usando LLM multimodal (LLaVA).
-Integração com Ollama via HTTP REST API.
+"""Medical pipeline orchestrator for 2-stage LLM analysis with RAG.
+
+This module orchestrates the medical analysis pipeline:
+1. Stage 1: Vision analysis (LLaVA-Med) → English findings
+2. Stage 2: Medical text generation (BioMistral-7B) → Professional English report
+
+Memory Management (M4 Pro 24GB):
+- Sequential loading: Only 1 HuggingFace model in memory at a time
+- MPS constraint: ~10GB max single allocation (models @ 13GB need splitting)
+- Peak memory: ~13GB
 """
 
-import base64
-import json
+import logging
+import time
 from pathlib import Path
-
-import requests
-
-
-def encode_image_to_base64(image_path: str) -> str:
-    """
-    Converte imagem para base64 (formato aceito pelo Ollama).
-    
-    Args:
-        image_path: Caminho da imagem (JPEG/PNG)
-        
-    Returns:
-        base64_str: String base64 sem prefixo 'data:image/...'
-    """
-    with open(image_path, "rb") as f:
-        image_bytes = f.read()
-    
-    return base64.b64encode(image_bytes).decode("utf-8")
-
-
-def load_medical_prompt(prompt_path: str) -> str:
-    """
-    Carrega template de prompt médico do disco.
-    
-    Args:
-        prompt_path: Caminho para arquivo .txt com prompt
-        
-    Returns:
-        prompt_template: String do prompt com placeholders {diagnosis}, {confidence}
-    """
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        return f.read()
-
-
-def generate_clinical_description(
-    diagnosis: str,
-    confidence: float,
-    original_image_path: str,
-    overlay_image_path: str,
-    prompt_path: str,
-    ollama_host: str,
-    ollama_model: str = "llava:7b",
-) -> str:
-    """
-    Gera descrição clínica usando LLaVA via Ollama.
-    
-    Fluxo:
-    1. Carrega template de prompt médico
-    2. Substitui placeholders com dados do diagnóstico
-    3. Codifica imagem original e overlay em base64
-    4. Envia requisição HTTP POST para Ollama
-    5. Processa resposta JSON (streaming ou single-shot)
-    6. Retorna texto da descrição clínica
-    
-    Args:
-        diagnosis: "PNEUMONIA" ou "NORMAL"
-        confidence: Probabilidade da predição (0.0-1.0)
-        original_image_path: Radiografia original
-        overlay_image_path: Overlay com Grad-CAM
-        prompt_path: Template de prompt médico
-        ollama_host: URL do servidor Ollama (ex: http://localhost:11434)
-        ollama_model: Nome do modelo LLM (default: llava:7b)
-        
-    Returns:
-        description: Descrição clínica em português (200-400 palavras)
-        
-    Raises:
-        requests.exceptions.RequestException: Se Ollama estiver offline
-        json.JSONDecodeError: Se resposta estiver malformada
-        
-    Example:
-        >>> description = generate_clinical_description(
-        ...     diagnosis="PNEUMONIA",
-        ...     confidence=0.87,
-        ...     original_image_path="xray.jpg",
-        ...     overlay_image_path="xray_overlay.png",
-        ...     prompt_path="prompts/medical_analysis.txt",
-        ...     ollama_host="http://localhost:11434"
-        ... )
-        >>> print(description)
-        Radiografia de tórax em incidência anteroposterior revela...
-    """
-    # 1. Carrega e formata prompt
-    prompt_template = load_medical_prompt(prompt_path)
-    prompt = prompt_template.format(
-        diagnosis=diagnosis,
-        confidence=f"{confidence:.1%}"  # 0.87 → "87.0%"
-    )
-    
-    # 2. Codifica imagens em base64
-    overlay_base64 = encode_image_to_base64(overlay_image_path)
-    
-    # 3. Constrói payload JSON para Ollama API
-    payload = {
-        "model": ollama_model,
-        "prompt": prompt,
-        "images": [overlay_base64],  # LLaVA aceita múltiplas imagens
-        "stream": False,  # Desabilita streaming (espera resposta completa)
-        "options": {
-            "temperature": 0.3,  # Baixa temperatura = mais determinístico
-            "num_predict": 500,  # Máximo de tokens na resposta
-        }
-    }
-    
-    # 4. Envia requisição HTTP POST
-    api_url = f"{ollama_host}/api/generate"
-    
-    try:
-        response = requests.post(
-            api_url,
-            json=payload,
-            timeout=120  # Timeout de 2 minutos (LLM pode ser lento)
-        )
-        response.raise_for_status()  # Lança exceção se status != 200
-        
-    except requests.exceptions.ConnectionError:
-        raise ConnectionError(
-            f"Não foi possível conectar ao Ollama em {ollama_host}. "
-            "Certifique-se de que o servidor está rodando (ollama serve)."
-        )
-    
-    # 5. Parse da resposta JSON
-    response_json = response.json()
-    
-    # Ollama retorna campo "response" com o texto gerado
-    description = response_json.get("response", "")
-    
-    if not description:
-        raise ValueError("Ollama retornou resposta vazia. Verifique os logs.")
-    
-    # 6. Limpeza pós-processamento
-    description = description.strip()
-    
-    return description
-```
-
-**Arquivo fonte:** `src/core/clinical_description.py` (Linhas 1-130)
-
-**Custo computacional:** ~10-13 segundos (depende da GPU e tamanho do modelo)
-
----
-
-## Apêndice D: Gerenciamento de Banco de Dados
-
-### Arquivo: `src/db/repositories.py`
-
-Funções CRUD para diagnósticos, visualizações e descrições clínicas.
-
-```python
-"""
-Repositório de dados para diagnósticos.
-Implementa padrão Repository para abstrair persistência.
-"""
-
-import hashlib
-import json
-import sqlite3
 from typing import Any
 
-from src.db.database import get_connection
-from src.db.vector_store import get_vector_store
-from src.utils.config import config
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from src.prompts.medical_prompts import build_medical_text_prompt, build_vision_prompt
+from src.rag.retriever import MedicalRetriever
+
+logger = logging.getLogger(__name__)
 
 
-def save_diagnosis(
-    image_hash: str,
-    diagnosis: str,
-    confidence: float,
-    user_id: str | None = None,
-    metadata: dict | None = None,
-) -> int:
-    """
-    Salva diagnóstico no banco com deduplicação automática.
-    
-    Se image_hash já existir, retorna ID do registro existente (cache hit).
-    Caso contrário, insere novo registro.
-    
-    Args:
-        image_hash: SHA-256 da imagem (64 caracteres hex)
-        diagnosis: "PNEUMONIA" ou "NORMAL"
-        confidence: Probabilidade 0.0-1.0
-        user_id: Identificador do usuário/telefone (opcional)
-        metadata: JSON com dados extras (endpoint, filename, etc.)
-        
-    Returns:
-        diagnosis_id: ID do registro (novo ou existente)
-    """
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        
-        # Verifica se diagnóstico já existe (deduplicação)
-        cursor.execute(
-            "SELECT id FROM diagnoses WHERE image_hash = ?",
-            (image_hash,)
-        )
-        existing = cursor.fetchone()
-        
-        if existing:
-            # Cache hit: retorna ID existente
-            return existing["id"]
-        
-        # Cache miss: insere novo registro
-        cursor.execute(
-            """
-            INSERT INTO diagnoses 
-            (image_hash, diagnosis, confidence, model_version, user_id, metadata)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                image_hash,
-                diagnosis,
-                confidence,
-                config.model_version,  # Ex: "resnet50_v1"
-                user_id,
-                json.dumps(metadata) if metadata else None
+class MedicalPipeline:
+    """Complete medical analysis pipeline with RAG grounding."""
+
+    def __init__(
+        self,
+        use_rag: bool = True,
+        vision_model: str = "llava-med",
+        device: str = "mps",
+    ) -> None:
+        """Initialize medical pipeline.
+
+        Args:
+            use_rag: Whether to use RAG context grounding
+            vision_model: Vision model ("llava-med" or "llava-llama3")
+            device: Device for inference ("mps", "cuda", or "cpu")
+        """
+        self.use_rag = use_rag
+        self.vision_model_name = vision_model
+        self.device = device
+
+        # Lazy-loaded models
+        self._rag_retriever = None
+        self._biomistral_model = None
+        self._biomistral_tokenizer = None
+
+        logger.info(f"MedicalPipeline initialized (RAG: {use_rag}, Vision: {vision_model})")
+
+    def _load_biomistral(self) -> None:
+        """Lazy-load BioMistral model with intelligent device mapping.
+
+        Strategy: MPS has ~10GB single allocation limit, but BioMistral @ FP16 = 13GB.
+        Use device_map="auto" to split across MPS + CPU/RAM intelligently.
+        """
+        if self._biomistral_model is None:
+            logger.info("Loading BioMistral-7B with intelligent device mapping...")
+            model_id = "BioMistral/BioMistral-7B"
+
+            self._biomistral_tokenizer = AutoTokenizer.from_pretrained(model_id)
+            self._biomistral_model = AutoModelForCausalLM.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16,
+                device_map="auto",  # Let transformers split intelligently
+                low_cpu_mem_usage=True,
+                max_memory={"mps": "10GiB", "cpu": "16GiB"},
             )
-        )
-        
-        return cursor.lastrowid
+            logger.info(f"BioMistral-7B loaded (device_map: {self._biomistral_model.hf_device_map})")
 
+    def _unload_model(self, model_name: str) -> None:
+        """Explicitly unload model and free memory.
 
-def save_visualization(
-    diagnosis_id: int,
-    heatmap_bytes: bytes,
-    overlay_bytes: bytes
-):
-    """
-    Salva visualizações Grad-CAM como BLOBs.
-    
-    Args:
-        diagnosis_id: Foreign key para tabela diagnoses
-        heatmap_bytes: PNG binário do heatmap
-        overlay_bytes: PNG binário do overlay
-    """
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO visualizations (diagnosis_id, heatmap_blob, overlay_blob)
-            VALUES (?, ?, ?)
-            """,
-            (diagnosis_id, heatmap_bytes, overlay_bytes)
-        )
+        Critical for M4 Pro 24GB: ensures only 1 HuggingFace model loaded at a time.
 
+        Args:
+            model_name: Model to unload ("biomistral")
+        """
+        import gc
 
-def save_clinical_description(
-    diagnosis_id: int,
-    description: str,
-    diagnosis: str,
-    confidence: float
-):
-    """
-    Salva descrição clínica no SQLite E ChromaDB.
-    
-    Dual-write:
-    1. SQLite: Armazena texto completo
-    2. ChromaDB: Armazena embedding 384-dim para busca semântica
-    
-    Args:
-        diagnosis_id: Foreign key
-        description: Texto da descrição clínica (LLM output)
-        diagnosis: "PNEUMONIA" ou "NORMAL" (metadata)
-        confidence: 0.0-1.0 (metadata)
-    """
-    # 1. Salva no SQLite
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO clinical_descriptions (diagnosis_id, description_text, llm_model)
-            VALUES (?, ?, ?)
-            """,
-            (diagnosis_id, description, config.ollama_model)
-        )
-    
-    # 2. Salva no ChromaDB (gera embedding automaticamente)
-    vector_store = get_vector_store()
-    vector_store.add_description(
-        diagnosis_id=diagnosis_id,
-        description=description,
-        metadata={
-            "diagnosis": diagnosis,
-            "confidence": round(confidence, 2),
-            "model": config.ollama_model
+        if model_name == "biomistral" and self._biomistral_model is not None:
+            logger.info("Unloading BioMistral-7B to free ~13GB memory...")
+            del self._biomistral_model
+            del self._biomistral_tokenizer
+            self._biomistral_model = None
+            self._biomistral_tokenizer = None
+
+        gc.collect()
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+            logger.info(f"✅ {model_name} unloaded, MPS cache cleared")
+
+    def stage1_vision_analysis(
+        self, image_path: str, cnn_diagnosis: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Stage 1: Vision analysis with RAG grounding.
+
+        Args:
+            image_path: Path to chest X-ray image
+            cnn_diagnosis: CNN classification result
+
+        Returns:
+            Dictionary with vision analysis results
+        """
+        logger.info("=== STAGE 1: Vision Analysis ===")
+        start_time = time.time()
+
+        # Build RAG context
+        rag_context = ""
+        if self.use_rag:
+            diagnosis = cnn_diagnosis.get("prediction", "").lower()
+            rag_context = self.rag_retriever.build_rag_context(
+                diagnosis=diagnosis,
+                include_guidelines=True,
+                include_reports=False,
+            )
+
+        # Build and run vision model
+        vision_prompt = build_vision_prompt(use_rag=self.use_rag, rag_context=rag_context)
+        vision_output = self._run_llava_med(image_path, vision_prompt)
+
+        return {
+            "findings_en": vision_output,
+            "model": self.vision_model_name,
+            "rag_context": rag_context,
+            "latency_s": time.time() - start_time,
         }
-    )
 
+    def stage2_medical_text(
+        self, vision_result: dict[str, Any], cnn_diagnosis: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Stage 2: Medical text generation with BioMistral.
 
-def search_similar_cases(query: str, top_k: int = 5) -> list[dict]:
-    """
-    Busca semântica de casos similares.
-    
-    Combina ChromaDB (vetores) + SQLite (dados estruturados).
-    
-    Args:
-        query: Texto de busca (ex: "infiltrados bilaterais")
-        top_k: Número de resultados
-        
-    Returns:
-        Lista de diagnósticos com similarity_score
-    """
-    # 1. Busca vetorial no ChromaDB
-    vector_store = get_vector_store()
-    similar_descriptions = vector_store.search_similar(query, top_k=top_k)
-    
-    # 2. Enriquece com dados do SQLite
-    results = []
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        for desc in similar_descriptions:
-            cursor.execute(
-                "SELECT * FROM diagnoses WHERE id = ?",
-                (desc["diagnosis_id"],)
+        Args:
+            vision_result: Output from stage 1
+            cnn_diagnosis: CNN classification result
+
+        Returns:
+            Dictionary with medical text generation results
+        """
+        logger.info("=== STAGE 2: Medical Text Generation ===")
+        start_time = time.time()
+
+        # Unload LLaVA-Med, load BioMistral (sequential loading)
+        self._unload_llava_med()
+        self._load_biomistral()
+
+        # Build RAG context with similar reports
+        rag_context = ""
+        if self.use_rag:
+            rag_context = self.rag_retriever.build_rag_context(
+                diagnosis=cnn_diagnosis.get("prediction", "").lower(),
+                findings=vision_result["findings_en"],
+                include_guidelines=True,
+                include_reports=True,
             )
-            row = cursor.fetchone()
-            if row:
-                results.append({
-                    **dict(row),  # id, diagnosis, confidence, created_at, ...
-                    "description": desc["description"],
-                    "similarity_score": 1 - desc["distance"]  # Converte distância
-                })
-    
-    return results
+
+        # Build prompt and generate
+        medical_prompt = build_medical_text_prompt(
+            vision_description=vision_result["findings_en"],
+            cnn_diagnosis=cnn_diagnosis,
+            use_rag=self.use_rag,
+            rag_context=rag_context,
+        )
+
+        # Format with Mistral chat template
+        formatted_prompt = self._biomistral_tokenizer.apply_chat_template(
+            [{"role": "user", "content": medical_prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        # Generate medical report
+        inputs = self._biomistral_tokenizer(formatted_prompt, return_tensors="pt")
+        inputs = {k: v.to(self._biomistral_model.device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            outputs = self._biomistral_model.generate(
+                **inputs,
+                max_new_tokens=200,
+                temperature=0.7,
+                top_p=0.9,
+                do_sample=True,
+                pad_token_id=self._biomistral_tokenizer.eos_token_id,
+            )
+
+        medical_report = self._biomistral_tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
+        )
+
+        return {
+            "report_en": medical_report.strip(),
+            "model": "BioMistral-7B",
+            "rag_context": rag_context,
+            "latency_s": time.time() - start_time,
+        }
+
+    def analyze_xray(
+        self, image_path: str, cnn_diagnosis: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Complete end-to-end X-ray analysis with sequential model loading.
+
+        Memory Management:
+        - Stage 1: Vision model (LLaVA-Med)
+        - Stage 2: BioMistral (load → generate → unload)
+        Peak memory: ~13GB
+
+        Args:
+            image_path: Path to chest X-ray image
+            cnn_diagnosis: Optional CNN classification result
+
+        Returns:
+            Complete analysis results (2 stages)
+        """
+        pipeline_start = time.time()
+
+        if cnn_diagnosis is None:
+            cnn_diagnosis = {"prediction": "UNKNOWN", "confidence": 0.0}
+
+        # Stage 1: Vision analysis
+        vision_result = self.stage1_vision_analysis(image_path, cnn_diagnosis)
+
+        # Stage 2: Medical text generation
+        medical_result = self.stage2_medical_text(vision_result, cnn_diagnosis)
+
+        # Cleanup
+        self._unload_model("biomistral")
+
+        return {
+            "success": True,
+            "image_path": image_path,
+            "cnn_diagnosis": cnn_diagnosis,
+            "stage1_vision": vision_result,
+            "stage2_medical": medical_result,
+            "final_report_en": medical_result["report_en"],
+            "total_latency_s": time.time() - pipeline_start,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
 ```
 
-**Arquivo fonte:** `src/db/repositories.py` (Linhas 1-216)
+**Arquivo fonte:** `src/core/medical_pipeline.py` (Linhas 1-210)
+
+**Características:**
+- **Carregamento sequencial:** Apenas 1 modelo HuggingFace na memória por vez
+- **device_map="auto":** Split inteligente entre MPS + CPU
+- **Pico de memória:** ~13GB (compatível com M4 Pro 24GB)
+- **Latência total:** ~39-49 segundos por análise
 
 ---
 
-## Apêndice E: Endpoints da API
+## Apêndice D: Sistema RAG
+
+### Arquivo: `src/rag/retriever.py`
+
+Retriever de conhecimento médico para grounding de geração com RAG.
+
+```python
+"""Medical knowledge retriever for RAG-enhanced generation.
+
+Features:
+- Relevance threshold filtering (removes low-quality matches)
+- Query caching for performance
+- Category-aware retrieval
+- Diversity ranking to avoid redundant results
+"""
+
+import logging
+from typing import Any
+
+from src.rag.vector_store import ChromaVectorStore
+
+logger = logging.getLogger(__name__)
+
+# Relevance thresholds (ChromaDB uses L2 distance - lower is better)
+DEFAULT_RELEVANCE_THRESHOLD = 1.2  # Max distance to consider relevant
+STRICT_RELEVANCE_THRESHOLD = 0.8   # For high-precision queries
+
+
+class MedicalRetriever:
+    """Retriever for medical knowledge to ground LLM generation.
+
+    Features:
+    - Relevance threshold: Filters out results below quality threshold
+    - Caching: LRU cache for repeated queries
+    - Category filtering: Can filter by pathology, severity, signs, etc.
+    """
+
+    def __init__(
+        self,
+        vector_store: ChromaVectorStore | None = None,
+        relevance_threshold: float = DEFAULT_RELEVANCE_THRESHOLD,
+    ) -> None:
+        """Initialize medical retriever.
+
+        Args:
+            vector_store: ChromaDB vector store (creates new if None)
+            relevance_threshold: Max distance to consider relevant (lower = stricter)
+        """
+        self.vector_store = vector_store or ChromaVectorStore()
+        self.relevance_threshold = relevance_threshold
+
+    def _filter_by_relevance(
+        self, results: list[dict[str, Any]], threshold: float | None = None
+    ) -> list[dict[str, Any]]:
+        """Filter results by relevance threshold.
+
+        Args:
+            results: List of result dicts with 'distance' key
+            threshold: Optional custom threshold
+
+        Returns:
+            Filtered list with only relevant results
+        """
+        max_distance = threshold or self.relevance_threshold
+        filtered = [r for r in results if r.get("distance", 0) <= max_distance]
+
+        if len(filtered) < len(results):
+            removed = len(results) - len(filtered)
+            logger.debug(f"Filtered out {removed} low-relevance results")
+
+        return filtered
+
+    def get_relevant_guidelines(
+        self,
+        diagnosis: str,
+        n_results: int = 3,
+        category: str | None = None,
+        strict: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Retrieve relevant radiology guidelines with quality filtering.
+
+        Args:
+            diagnosis: Diagnosis or condition (e.g., 'pneumonia', 'normal')
+            n_results: Number of guidelines to retrieve
+            category: Optional category filter ('pathology', 'signs', etc.)
+            strict: Use stricter relevance threshold
+
+        Returns:
+            List of relevant guidelines with metadata
+        """
+        query_n = n_results * 2 if category else n_results + 2
+
+        results = self.vector_store.query(
+            collection_name="medical_guidelines",
+            query_text=diagnosis,
+            n_results=query_n,
+            where={"category": category} if category else None,
+        )
+
+        guidelines = []
+        if results.get("documents"):
+            for i, doc in enumerate(results["documents"][0]):
+                guidelines.append({
+                    "text": doc,
+                    "metadata": results["metadatas"][0][i] if results.get("metadatas") else {},
+                    "distance": results["distances"][0][i] if results.get("distances") else 0.0,
+                })
+
+        # Apply relevance filtering
+        threshold = STRICT_RELEVANCE_THRESHOLD if strict else self.relevance_threshold
+        guidelines = self._filter_by_relevance(guidelines, threshold)
+
+        return guidelines[:n_results]
+
+    def get_similar_reports(
+        self,
+        findings: str,
+        n_results: int = 2,
+        language: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Retrieve similar radiology reports for reference.
+
+        Args:
+            findings: Clinical findings description
+            n_results: Number of similar reports to retrieve
+            language: Optional language filter ('en' or 'pt-BR')
+
+        Returns:
+            List of similar reports with metadata
+        """
+        where = {"language": language} if language else None
+
+        results = self.vector_store.query(
+            collection_name="sample_reports",
+            query_text=findings,
+            n_results=n_results + 2,
+            where=where,
+        )
+
+        reports = []
+        if results.get("documents"):
+            for i, doc in enumerate(results["documents"][0]):
+                reports.append({
+                    "text": doc,
+                    "metadata": results["metadatas"][0][i] if results.get("metadatas") else {},
+                    "distance": results["distances"][0][i] if results.get("distances") else 0.0,
+                })
+
+        return self._filter_by_relevance(reports)[:n_results]
+
+    def build_rag_context(
+        self,
+        diagnosis: str,
+        findings: str | None = None,
+        include_guidelines: bool = True,
+        include_reports: bool = True,
+        prefer_english_reports: bool = True,
+    ) -> str:
+        """Build RAG context for LLM prompts.
+
+        Args:
+            diagnosis: Primary diagnosis
+            findings: Clinical findings (optional)
+            include_guidelines: Whether to include guidelines
+            include_reports: Whether to include similar reports
+            prefer_english_reports: Prefer English reports for EN LLMs
+
+        Returns:
+            Formatted RAG context string
+        """
+        context_parts = []
+
+        if include_guidelines:
+            guidelines = self.get_relevant_guidelines(diagnosis, n_results=3)
+            if guidelines:
+                context_parts.append("=== RELEVANT GUIDELINES ===")
+                for g in guidelines[:4]:
+                    title = g.get("metadata", {}).get("title", "Guideline")
+                    context_parts.append(f"[{title}]")
+                    context_parts.append(f"- {g['text']}")
+
+        if include_reports and findings:
+            language = "en" if prefer_english_reports else None
+            reports = self.get_similar_reports(findings, n_results=2, language=language)
+            if reports:
+                context_parts.append("\n=== SIMILAR REPORTS ===")
+                for r in reports:
+                    title = r.get("metadata", {}).get("title", "Report")
+                    context_parts.append(f"[{title}]")
+                    context_parts.append(f"- {r['text']}")
+
+        context = "\n".join(context_parts) if context_parts else ""
+        if context:
+            logger.info(f"Built RAG context: {len(context)} chars")
+        return context
+```
+
+**Arquivo fonte:** `src/rag/retriever.py` (Linhas 1-180)
+
+**Base de conhecimento:** 31 guidelines médicas + 50+ laudos de referência
+
+---
+
+## Apêndice E: Prompt Engineering Médico
+
+### Arquivo: `src/prompts/medical_prompts.py`
+
+Templates de prompts para o pipeline de análise médica com injeção de contexto RAG.
+
+```python
+"""Prompt templates for medical AI system with RAG context injection."""
+
+
+def build_vision_prompt(use_rag: bool = False, rag_context: str = "") -> str:
+    """Build prompt for vision models (LLaVA-Med, llava-llama3).
+
+    Args:
+        use_rag: Whether to include RAG context
+        rag_context: RAG-retrieved medical knowledge
+
+    Returns:
+        Formatted prompt string
+    """
+    base_prompt = """You are a medical AI assistant analyzing a chest X-ray.
+
+TASK: Describe the radiological findings in this chest X-ray.
+
+INSTRUCTIONS:
+1. Identify anatomical structures (left lung, right lung, heart, diaphragm)
+2. Note ANY opacities, consolidations, or abnormal patterns
+3. If the X-ray is NORMAL, explicitly state "no acute findings"
+4. CRITICAL: Use correct left/right orientation (right side appears left on PA view)
+5. Be specific about location (e.g., "right lower lobe", "left hilum")
+6. Mention presence/absence of: pleural effusion, pneumothorax, cardiomegaly
+
+"""
+
+    if use_rag and rag_context:
+        base_prompt += f"""
+MEDICAL REFERENCE KNOWLEDGE:
+{rag_context}
+
+Use the above guidelines to inform your analysis, but describe ONLY what you observe.
+
+"""
+
+    base_prompt += """
+OUTPUT FORMAT:
+- 2-3 concise sentences
+- English only (will be translated later)
+- Professional medical terminology
+- If normal: state clearly "The lungs are clear bilaterally. No acute abnormality."
+
+Describe the X-ray findings:"""
+
+    return base_prompt
+
+
+def build_medical_text_prompt(
+    vision_description: str,
+    cnn_diagnosis: dict,
+    use_rag: bool = False,
+    rag_context: str = "",
+) -> str:
+    """Build prompt for medical text generation (BioMistral-7B).
+
+    Args:
+        vision_description: Output from vision model
+        cnn_diagnosis: CNN classification result
+        use_rag: Whether to include RAG context
+        rag_context: RAG-retrieved medical knowledge
+
+    Returns:
+        Formatted prompt for BioMistral
+    """
+    diagnosis = cnn_diagnosis.get("prediction", "Unknown")
+    confidence = cnn_diagnosis.get("confidence", 0.0)
+
+    prompt = f"""A vision AI analyzed a chest X-ray and reported: "{vision_description}"
+
+A CNN classifier predicted: {diagnosis} with {confidence:.0%} confidence.
+
+"""
+
+    if use_rag and rag_context:
+        prompt += f"""Relevant medical knowledge:
+{rag_context}
+
+"""
+
+    prompt += """Write a professional 2-3 sentence radiology report that synthesizes these findings.
+Use standard medical terminology and be specific about:
+- Anatomical locations (e.g., "right lower lobe", "bilateral bases")
+- Pattern of abnormality if present (consolidation, infiltrate, opacity)
+- Clinical assessment or recommendation
+
+If the findings are normal, state "No acute cardiopulmonary abnormality" or similar.
+If findings contradict the CNN prediction, note "Clinical correlation recommended."
+
+Radiology Report:"""
+
+    return prompt
+```
+
+**Arquivo fonte:** `src/prompts/medical_prompts.py` (Linhas 1-95)
+
+**Características dos prompts:**
+- **Estrutura clara:** TASK → INSTRUCTIONS → OUTPUT FORMAT
+- **Grounding com RAG:** Contexto médico injetado condicionalmente
+- **Orientação espacial:** Instruções explícitas sobre lateralidade em radiografias PA
+- **Síntese, não eco:** Prompt encoraja integração de múltiplas fontes
+
+---
+
+## Apêndice F: Endpoints da API
 
 ### Arquivo: `src/api/app.py`
 
-Endpoints Flask RESTful (exemplo: `/diagnose/explained`).
+Endpoints Flask RESTful com integração do pipeline LLM.
 
 ```python
 """
 API RESTful do PneumoFinder com Flask.
+Integração do pipeline de 2 estágios (LLaVA-Med + BioMistral).
 """
+
+import hashlib
+import logging
+from pathlib import Path
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from src.core.diagnosis import diagnose_with_visualization, load_cnn_model
-from src.core.clinical_description import generate_clinical_description
-from src.core.visualization import find_last_conv_layer, find_resnet_base
-from src.db import save_diagnosis, save_visualization, save_clinical_description
+from src.core.diagnosis import diagnose_from_path, load_cnn_model
+from src.core.medical_pipeline import MedicalPipeline
+from src.core.visualization import find_last_conv_layer, find_resnet_base, generate_gradcam
 from src.utils.config import config
-from src.utils.file_utils import save_uploaded_file, cleanup_file
+from src.utils.file_utils import cleanup_file, save_uploaded_file
 
-import hashlib
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
@@ -708,281 +944,89 @@ cnn_model = load_cnn_model(config.cnn_model_path)
 resnet_base = find_resnet_base(cnn_model)
 last_conv_layer = find_last_conv_layer(resnet_base)
 
+# Pipeline de 2 estágios (lazy-loaded)
+medical_pipeline = MedicalPipeline(use_rag=True, vision_model="llava-med")
 
-@app.route("/diagnose/explained", methods=["POST"])
-def diagnose_with_explanation():
+
+@app.route("/analyze", methods=["POST"])
+def analyze_xray():
     """
-    Endpoint multimodal: CNN + Grad-CAM + LLM.
-    
+    Endpoint completo: CNN + Grad-CAM + Pipeline 2-Estágios (LLaVA-Med → BioMistral).
+
     Request:
-        POST /diagnose/explained
+        POST /analyze
         Content-Type: multipart/form-data
         Body: image=@radiografia.jpg
-        
+
     Response (200 OK):
         {
-          "diagnosis": "PNEUMONIA",
-          "confidence": 0.87,
-          "diagnosis_id": 42,
-          "description": "Radiografia de tórax revela...",
-          "heatmap_url": "/static/temp/radiografia_heatmap.png",
-          "overlay_url": "/static/temp/radiografia_overlay.png"
+          "success": true,
+          "cnn_diagnosis": {"prediction": "PNEUMONIA", "confidence": 0.87},
+          "stage1_vision": {"findings_en": "Consolidation in right lower lobe..."},
+          "stage2_medical": {"report_en": "Chest X-ray reveals..."},
+          "final_report_en": "Chest X-ray reveals consolidation...",
+          "gradcam_overlay_url": "/static/temp/img_overlay.png",
+          "total_latency_s": 39.2
         }
-        
+
     Response (400 Bad Request):
-        {
-          "error": "No image provided"
-        }
-        
+        {"error": "No image provided"}
+
     Response (500 Internal Server Error):
-        {
-          "error": "Connection to Ollama failed"
-        }
+        {"success": false, "error": "Pipeline failed: ..."}
     """
-    # Validação de entrada
     if "image" not in request.files:
         return jsonify({"error": "No image provided"}), 400
-    
+
     temp_path = None
     try:
         # 1. Upload e salvamento temporário
         image_file = request.files["image"]
         temp_path = save_uploaded_file(image_file, config.temp_dir)
-        
-        # 2. Deduplicação (SHA-256)
-        with open(temp_path, "rb") as f:
-            image_hash = hashlib.sha256(f.read()).hexdigest()
-        
-        # 3. CNN + Grad-CAM
-        diagnosis, confidence, heatmap_path, overlay_path = (
-            diagnose_with_visualization(
-                cnn_model, resnet_base, last_conv_layer,
-                temp_path, config.temp_dir
-            )
+        logger.info(f"Analyzing: {image_file.filename}")
+
+        # 2. CNN Diagnosis
+        diagnosis, confidence = diagnose_from_path(cnn_model, temp_path)
+        cnn_result = {"prediction": diagnosis, "confidence": round(confidence, 4)}
+
+        # 3. Grad-CAM Visualization
+        _, overlay_path = generate_gradcam(
+            cnn_model, resnet_base, last_conv_layer,
+            temp_path, config.temp_dir
         )
-        
-        # 4. LLM (descrição clínica)
-        description = generate_clinical_description(
-            diagnosis, confidence,
-            temp_path, overlay_path,
-            config.medical_prompt_path,
-            config.ollama_host,
-            config.ollama_model
+
+        # 4. Pipeline 2-Estágios (LLaVA-Med → BioMistral)
+        pipeline_result = medical_pipeline.analyze_xray(
+            image_path=temp_path,
+            cnn_diagnosis=cnn_result
         )
-        
-        # 5. Salva no banco de dados
-        diagnosis_id = save_diagnosis(
-            image_hash=image_hash,
-            diagnosis=diagnosis,
-            confidence=confidence,
-            metadata={"endpoint": "/diagnose/explained", "filename": image_file.filename}
-        )
-        
-        # Salva BLOBs (heatmap/overlay)
-        with open(heatmap_path, "rb") as f:
-            heatmap_bytes = f.read()
-        with open(overlay_path, "rb") as f:
-            overlay_bytes = f.read()
-        save_visualization(diagnosis_id, heatmap_bytes, overlay_bytes)
-        
-        # Salva descrição + embeddings
-        save_clinical_description(diagnosis_id, description, diagnosis, confidence)
-        
-        # 6. Retorna JSON
+
+        # 5. Retorna resposta completa
         return jsonify({
-            "diagnosis": diagnosis,
-            "confidence": round(confidence, 2),
-            "diagnosis_id": diagnosis_id,
-            "description": description,
-            "heatmap_url": f"/static/temp/{Path(heatmap_path).name}",
-            "overlay_url": f"/static/temp/{Path(overlay_path).name}"
+            "success": pipeline_result.get("success", False),
+            "cnn_diagnosis": cnn_result,
+            "stage1_vision": pipeline_result.get("stage1_vision", {}),
+            "stage2_medical": pipeline_result.get("stage2_medical", {}),
+            "final_report_en": pipeline_result.get("final_report_en", ""),
+            "gradcam_overlay_url": f"/static/temp/{Path(overlay_path).name}",
+            "total_latency_s": round(pipeline_result.get("total_latency_s", 0), 1),
         })
-    
+
     except Exception as e:
-        # Log de erro (em produção, usar logger estruturado)
-        print(f"Error in /diagnose/explained: {e}")
-        return jsonify({"error": str(e)}), 500
-    
+        logger.error(f"Error in /analyze: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
     finally:
-        # Cleanup (sempre executado)
         if temp_path:
             cleanup_file(temp_path)
 ```
 
-**Arquivo fonte:** `src/api/app.py` (Linhas 120-206)
+**Arquivo fonte:** `src/api/app.py` (Linhas 1-95)
 
----
-
-## Apêndice F: Dockerfile e Docker Compose
-
-### Arquivo: `Dockerfile`
-
-Build multi-stage para imagem otimizada.
-
-```dockerfile
-# Stage 1: Builder (instala dependências)
-FROM python:3.11-slim AS builder
-
-WORKDIR /app
-
-# Copia apenas pyproject.toml primeiro (cache de layers)
-COPY pyproject.toml .
-
-# Instala uv (fast package installer)
-RUN pip install --no-cache-dir uv
-
-# Instala dependências do projeto
-RUN uv pip install --system --no-cache-dir -e .
-
-# Stage 2: Runtime (imagem final leve)
-FROM python:3.11-slim
-
-# Cria usuário não-root (segurança)
-RUN useradd -m -u 1000 pneumofinder
-
-# Instala dependências de sistema (OpenCV)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libglib2.0-0 \
-        libsm6 \
-        libxrender1 \
-        libgomp1 && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copia Python packages do builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages \
-                    /usr/local/lib/python3.11/site-packages
-
-# Copia código fonte
-COPY . .
-
-# Cria diretórios com permissões corretas
-RUN mkdir -p database temp && \
-    chown -R pneumofinder:pneumofinder /app
-
-# Muda para usuário não-root
-USER pneumofinder
-
-# Health check para Kubernetes/Docker
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s \
-  CMD python -c "import requests; requests.get('http://localhost:5001/health')"
-
-# Expõe porta Flask
-EXPOSE 5001
-
-# Comando de inicialização
-CMD ["python", "app.py"]
-```
-
-**Arquivo fonte:** `Dockerfile` (Linhas 1-55)
-
-**Tamanho da imagem:** ~850MB (Python 3.11 + TensorFlow + dependências)
-
----
-
-### Arquivo: `docker-compose.yml`
-
-Orquestração de API + ChromaDB.
-
-```yaml
-version: '3.8'
-
-services:
-  # Serviço principal: PneumoFinder API
-  api:
-    build: .
-    container_name: pneumofinder-api
-    ports:
-      - "5001:5001"
-    environment:
-      # Flask
-      - FLASK_ENV=production
-      - FLASK_DEBUG=0
-      
-      # Ollama (host machine)
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      
-      # ChromaDB (container)
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
-    
-    volumes:
-      # Modelo CNN (read-only)
-      - ./models:/app/models:ro
-      
-      # Database persistente
-      - api-database:/app/database
-      
-      # Uploads temporários
-      - api-temp:/app/temp
-    
-    depends_on:
-      - chromadb
-    
-    extra_hosts:
-      # Permite acesso ao host (Ollama)
-      - "host.docker.internal:host-gateway"
-    
-    restart: unless-stopped
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Serviço de banco vetorial
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: pneumofinder-chromadb
-    ports:
-      - "8000:8000"
-    
-    volumes:
-      # Persistência de vetores
-      - chroma-data:/chroma/chroma
-    
-    environment:
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
-    
-    restart: unless-stopped
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-# Volumes nomeados (persistência)
-volumes:
-  api-database:
-    driver: local
-  api-temp:
-    driver: local
-  chroma-data:
-    driver: local
-```
-
-**Arquivo fonte:** `docker-compose.yml` (Linhas 1-78)
-
-**Comandos:**
-```bash
-# Iniciar serviços
-docker-compose up -d
-
-# Ver logs
-docker-compose logs -f api
-
-# Parar serviços
-docker-compose down
-
-# Remover volumes (⚠️ deleta dados)
-docker-compose down -v
-```
+**Características:**
+- **Pipeline integrado:** CNN → Grad-CAM → LLaVA-Med → BioMistral
+- **RAG ativado:** Contexto médico injetado automaticamente
+- **Resposta estruturada:** Resultados de cada estágio retornados separadamente
 
 ---
 
@@ -990,16 +1034,16 @@ docker-compose down -v
 
 ### Arquivo: `src/utils/config.py`
 
-Configuração centralizada com suporte a variáveis de ambiente.
+Configuração centralizada com suporte a variáveis de ambiente e modelos HuggingFace.
 
 ```python
 """
-Configuração centralizada do PneumoFinder.
+Configuração centralizada do PneumoFinder v3.
 Suporta variáveis de ambiente para deployment.
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -1007,113 +1051,120 @@ from pathlib import Path
 class Config:
     """
     Classe de configuração com valores padrão.
-    
+
     Variáveis de ambiente têm precedência sobre valores padrão.
-    
+
     Exemplo de uso:
         >>> from src.utils.config import config
-        >>> print(config.api_port)
-        5001
-        >>> print(config.ollama_host)
-        http://localhost:11434
+        >>> print(config.vision_model)
+        llava-med
+        >>> print(config.text_model)
+        BioMistral/BioMistral-7B
     """
-    
+
     # ===== API =====
     api_port: int = int(os.getenv("API_PORT", "5001"))
     debug_mode: bool = os.getenv("FLASK_DEBUG", "0") == "1"
-    
-    # ===== Modelos =====
+
+    # ===== Modelos CNN =====
     cnn_model_path: str = os.getenv(
         "CNN_MODEL_PATH",
         "models/pneumonia_model.keras"
     )
     model_version: str = "resnet50_v1"
-    
-    # ===== Ollama (LLM) =====
-    ollama_host: str = os.getenv(
-        "OLLAMA_BASE_URL",
-        "http://localhost:11434"
-    )
-    ollama_model: str = os.getenv("OLLAMA_MODEL", "llava:7b")
-    
+
+    # ===== Modelos LLM (HuggingFace) =====
+    vision_model: str = os.getenv("VISION_MODEL", "llava-med")  # "llava-med" ou "llava-llama3"
+    llava_med_model: str = "microsoft/llava-med-v1.5-mistral-7b"
+    text_model: str = os.getenv("TEXT_MODEL", "BioMistral/BioMistral-7B")
+
+    # ===== Gerenciamento de Memória (Apple Silicon) =====
+    device: str = os.getenv("DEVICE", "mps")  # "mps", "cuda", ou "cpu"
+    max_mps_memory: str = "10GiB"  # Limite MPS para evitar fragmentação
+    max_cpu_memory: str = "16GiB"  # Fallback para CPU/RAM
+
+    # ===== RAG =====
+    use_rag: bool = os.getenv("USE_RAG", "1") == "1"
+    rag_db_path: str = os.getenv("RAG_DB_PATH", "data/rag")
+    relevance_threshold: float = float(os.getenv("RAG_THRESHOLD", "1.2"))
+
     # ===== ChromaDB =====
     chroma_host: str = os.getenv("CHROMA_HOST", "localhost")
     chroma_port: int = int(os.getenv("CHROMA_PORT", "8000"))
-    
+
     # ===== Diretórios =====
     temp_dir: str = "temp"
     database_dir: str = "database"
-    vector_db_dir: str = "database/vectors"
-    vector_collection: str = "clinical_descriptions"
-    
-    # ===== Prompts =====
-    medical_prompt_path: str = "prompts/medical_analysis.txt"
-    
-    # ===== Twilio (WhatsApp) =====
-    twilio_account_sid: str | None = os.getenv("TWILIO_ACCOUNT_SID")
-    twilio_auth_token: str | None = os.getenv("TWILIO_AUTH_TOKEN")
+
+    # ===== HuggingFace =====
+    hf_cache_dir: str = os.getenv(
+        "HF_HOME",
+        str(Path.home() / ".cache/huggingface")
+    )
 
 
 # Instância global (singleton)
 config = Config()
 
 
-# Validação de configuração (executada no import)
 def validate_config():
-    """
-    Valida configuração no startup.
-    Lança exceções se configurações críticas estiverem faltando.
-    """
+    """Valida configuração no startup."""
     # Valida modelo CNN
     if not Path(config.cnn_model_path).exists():
         raise FileNotFoundError(
             f"Modelo CNN não encontrado: {config.cnn_model_path}"
         )
-    
-    # Valida prompt médico
-    if not Path(config.medical_prompt_path).exists():
-        raise FileNotFoundError(
-            f"Prompt médico não encontrado: {config.medical_prompt_path}"
-        )
-    
+
     # Cria diretórios necessários
     Path(config.temp_dir).mkdir(parents=True, exist_ok=True)
     Path(config.database_dir).mkdir(parents=True, exist_ok=True)
-    Path(config.vector_db_dir).mkdir(parents=True, exist_ok=True)
+    Path(config.rag_db_path).mkdir(parents=True, exist_ok=True)
 
 
-# Executa validação
 validate_config()
 ```
 
-**Arquivo fonte:** `src/utils/config.py` (Linhas 1-90)
+**Arquivo fonte:** `src/utils/config.py` (Linhas 1-80)
 
 **Variáveis de ambiente suportadas:**
-- `API_PORT` (default: 5001)
-- `FLASK_DEBUG` (default: 0)
-- `CNN_MODEL_PATH` (default: models/pneumonia_model.keras)
-- `OLLAMA_BASE_URL` (default: http://localhost:11434)
-- `OLLAMA_MODEL` (default: llava:7b)
-- `CHROMA_HOST` (default: localhost)
-- `CHROMA_PORT` (default: 8000)
+| Variável | Default | Descrição |
+|----------|---------|-----------|
+| `API_PORT` | 5001 | Porta da API Flask |
+| `VISION_MODEL` | llava-med | Modelo de visão (llava-med ou llava-llama3) |
+| `TEXT_MODEL` | BioMistral/BioMistral-7B | Modelo de texto médico |
+| `DEVICE` | mps | Dispositivo de inferência (mps, cuda, cpu) |
+| `USE_RAG` | 1 | Ativar RAG (1=sim, 0=não) |
+| `RAG_THRESHOLD` | 1.2 | Threshold de relevância (distância L2) |
+| `HF_HOME` | ~/.cache/huggingface | Cache de modelos HuggingFace |
 
 ---
 
 ## Conclusão
 
-Este apêndice fornece os principais trechos de código do PneumoFinder para referência técnica na monografia. O código completo está disponível no repositório GitHub (incluir link real).
+Este apêndice fornece os principais trechos de código do PneumoFinder v3 para referência técnica na monografia. O código completo está disponível no repositório GitHub.
 
 **Estatísticas do código:**
 
 | Métrica | Valor |
 |---------|-------|
-| **Linhas de código** | ~1,200 |
-| **Arquivos Python** | 18 |
-| **Módulos principais** | 7 (api, core, db, utils, bots) |
-| **Funções** | 45+ |
-| **Classes** | 3 (Config, VectorStore, WhatsAppBot) |
-| **Cobertura de testes** | 65% (pytest) |
-| **Complexidade ciclomática** | Média 4.2 (ruff check) |
+| **Linhas de código** | ~1,500 |
+| **Arquivos Python** | 22 |
+| **Módulos principais** | 8 (api, core, rag, prompts, db, utils, bots) |
+| **Funções** | 55+ |
+| **Classes** | 5 (MedicalPipeline, MedicalRetriever, ChromaVectorStore, Config, etc.) |
+| **Modelos LLM** | 2 (LLaVA-Med 7B, BioMistral-7B) |
+| **Guidelines RAG** | 31 documentos médicos |
+
+**Stack tecnológico:**
+
+| Componente | Tecnologia |
+|------------|------------|
+| **API** | Flask + Flask-CORS |
+| **CNN** | TensorFlow/Keras (ResNet50) |
+| **Vision LLM** | LLaVA-Med (HuggingFace Transformers) |
+| **Text LLM** | BioMistral-7B (HuggingFace Transformers) |
+| **RAG** | ChromaDB + all-MiniLM-L6-v2 |
+| **Aceleração** | Apple MPS (Metal Performance Shaders) |
 
 **Convenções de código:**
 - ✅ PEP 8 compliance (ruff format)

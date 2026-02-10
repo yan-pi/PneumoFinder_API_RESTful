@@ -35,7 +35,9 @@ O PneumoFinder foi projetado como uma **API RESTful** modular seguindo princípi
 | **CORS**            | Flask-CORS              | -      | Cross-Origin Resource Sharing |
 | **Deep Learning**   | TensorFlow              | 2.19.0 | Inferência CNN                |
 | **Computer Vision** | OpenCV                  | 4.x    | Processamento de imagens      |
-| **LLM**             | Ollama + LLaVA          | 7B     | Descrições clínicas           |
+| **Vision LLM**      | LLaVA-Med               | 7B     | Análise visual médica         |
+| **Text LLM**        | BioMistral-7B           | 7B     | Geração de laudos médicos     |
+| **RAG**             | ChromaDB + 31 guidelines| -      | Grounding de conhecimento     |
 | **Containerização** | Docker + Docker Compose | -      | Deploy e orquestração         |
 
 ---
@@ -46,38 +48,48 @@ O PneumoFinder foi projetado como uma **API RESTful** modular seguindo princípi
 ┌─────────────────────────────────────────────────────────────┐
 │                      CAMADA DE API                          │
 │  Flask + Flask-CORS + Werkzeug                              │
-│  (src/api/app.py)                                           │
-│  - Roteamento HTTP                                          │
+│  (src/api/routes.py)                                        │
+│  - Roteamento HTTP (/diagnose, /analyze)                    │
 │  - Validação de entrada                                     │
 │  - Serialização JSON                                        │
 └─────────────────────────────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   CAMADA DE NEGÓCIO (CORE)                  │
-│  Funções puras para processamento                           │
 │  ┌──────────────┐ ┌─────────────┐ ┌───────────────────┐     │
-│  │  diagnosis.py│ │visualizat.. │ │clinical_descri..  │     │
-│  │  - CNN       │ │  - Grad-CAM │ │  - LLM            │     │
-│  │  - ResNet50  │ │  - Heatmap  │ │  - Ollama API     │     │
-│  └──────────────┘ └─────────────┘ └───────────────────┘     │
+│  │ diagnosis.py │ │visualizat.. │ │medical_pipeline.py│     │
+│  │  - CNN       │ │  - Grad-CAM │ │                   │     │
+│  │  - ResNet50  │ │  - Heatmap  │ │ Stage 1: LLaVA-Med│     │
+│  └──────────────┘ └─────────────┘ │ Stage 2: BioMistral│    │
+│                                   └───────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      CAMADA RAG                             │
+│  ┌───────────────────┐          ┌──────────────────────┐    │
+│  │  retriever.py     │          │  vector_store.py     │    │
+│  │  - Guidelines (31)│          │  - ChromaDB          │    │
+│  │  - Sample Reports │          │  - Embeddings        │    │
+│  │  - Terminology    │          │  - Relevance Filter  │    │
+│  └───────────────────┘          └──────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   CAMADA DE PERSISTÊNCIA                    │
 │  ┌───────────────────┐          ┌──────────────────────┐    │
-│  │  database.py      │          │  vector_store.py     │    │
-│  │  repositories.py  │          │  - ChromaDB          │    │
-│  │  - SQLite         │          │  - Embeddings        │    │
-│  │  - CRUD           │          │  - Busca semântica   │    │
+│  │  database.py      │          │  Modelos HuggingFace │    │
+│  │  repositories.py  │          │  - LLaVA-Med (13GB)  │    │
+│  │  - SQLite         │          │  - BioMistral (13GB) │    │
+│  │  - CRUD           │          │  - device_map="auto" │    │
 │  └───────────────────┘          └──────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    CAMADA DE UTILIDADES                     │
 │  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐      │
-│  │  config.py  │ │ file_utils.py│ │ image_utils.py   │      │
-│  │  - Env vars │ │ - Upload     │ │ - Preprocess     │      │
-│  │  - Paths    │ │ - Cleanup    │ │ - Transformação  │      │
+│  │  config.py  │ │ file_utils.py│ │ medical_prompts.py│     │
+│  │  - Env vars │ │ - Upload     │ │ - Vision prompt  │      │
+│  │  - Paths    │ │ - Cleanup    │ │ - Medical prompt │      │
 │  └─────────────┘ └──────────────┘ └──────────────────┘      │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -88,17 +100,24 @@ O PneumoFinder foi projetado como uma **API RESTful** modular seguindo princípi
 src/
 ├── api/
 │   ├── __init__.py
-│   └── app.py                      # Flask app + endpoints
+│   └── routes.py                   # Flask app + endpoints
 ├── core/                           # Lógica de negócio
 │   ├── __init__.py
 │   ├── diagnosis.py                # Funções CNN
 │   ├── visualization.py            # Funções Grad-CAM
-│   └── clinical_description.py     # Funções LLM
+│   ├── clinical_description.py     # Funções LLM (legado)
+│   └── medical_pipeline.py         # Pipeline 2 estágios (LLaVA-Med + BioMistral)
+├── rag/                            # Sistema RAG
+│   ├── __init__.py
+│   ├── retriever.py                # MedicalRetriever (guidelines, reports)
+│   └── vector_store.py             # ChromaDB wrapper
+├── prompts/                        # Prompt Engineering
+│   ├── __init__.py
+│   └── medical_prompts.py          # Vision + Medical prompts
 ├── db/                             # Persistência
 │   ├── __init__.py
 │   ├── database.py                 # Conexão SQLite
-│   ├── repositories.py             # CRUD + deduplicação
-│   └── vector_store.py             # ChromaDB + embeddings
+│   └── repositories.py             # CRUD + deduplicação
 ├── utils/                          # Utilitários
 │   ├── __init__.py
 │   ├── config.py                   # Configuração centralizada
@@ -226,7 +245,7 @@ curl -X POST http://localhost:5001/diagnose/explained \
 }
 ```
 
-**Código:** `src/api/app.py:120-206`
+**Código:** `src/api/routes.py:120-206`
 
 **Fluxo interno:**
 
@@ -235,6 +254,64 @@ curl -X POST http://localhost:5001/diagnose/explained \
 3. LLM (`generate_clinical_description`)
 4. Salvar BLOBs e embeddings no banco
 5. Retornar URLs para visualizações
+
+---
+
+#### `POST /analyze` - Análise Completa com Pipeline 2 Estágios (NOVO)
+
+**Descrição:** Endpoint principal que executa o pipeline completo de 2 estágios com LLaVA-Med e BioMistral.
+
+**Entrada:**
+
+```bash
+curl -X POST http://localhost:5001/analyze \
+  -F "image=@radiografia.jpg"
+```
+
+**Saída:**
+
+```json
+{
+  "success": true,
+  "diagnosis": "PNEUMONIA",
+  "confidence": 0.9621,
+  "vision_findings": "Bilateral lower lobe consolidations consistent with pneumonia. No pleural effusion.",
+  "medical_report": "Findings: Bilateral airspace opacities in the lower lobes with air bronchograms. Impression: Community-acquired pneumonia. Clinical correlation recommended.",
+  "latency_s": 49.2,
+  "stage1_latency_s": 38.5,
+  "stage2_latency_s": 8.2,
+  "model": {
+    "vision": "llava-med",
+    "medical": "BioMistral-7B"
+  }
+}
+```
+
+**Fluxo interno:**
+
+```
+1. Upload e preprocessamento da imagem
+      ↓
+2. CNN Classification (ResNet50) + Grad-CAM
+      ↓
+3. Stage 1: LLaVA-Med Vision Analysis
+   ├─→ Build RAG context (guidelines)
+   ├─→ Build vision prompt
+   └─→ Generate findings description
+      ↓
+4. Model Unload (LLaVA-Med → free MPS memory)
+      ↓
+5. Stage 2: BioMistral-7B Medical Report
+   ├─→ Build RAG context (guidelines + sample reports)
+   ├─→ Build medical prompt with vision findings
+   └─→ Generate professional radiology report
+      ↓
+6. Model Unload (BioMistral → free memory)
+      ↓
+7. Return JSON response
+```
+
+**Código:** `src/api/routes.py` + `src/core/medical_pipeline.py`
 
 ---
 
@@ -425,7 +502,45 @@ Para manter compatibilidade com versões anteriores da API (em português):
 
 ---
 
-### Fluxo 3: Busca Semântica (`POST /api/search/similar`)
+### Fluxo 3: Pipeline 2 Estágios (`POST /analyze`)
+
+```
+1. Cliente envia POST com imagem (multipart/form-data)
+      ↓
+2. Flask salva upload em temp/
+      ↓
+3. Executa CNN + Grad-CAM (diagnose_with_visualization)
+      ↓
+4. Inicializa MedicalPipeline com RAG
+      ↓
+5. Stage 1: LLaVA-Med Vision Analysis
+      ├─→ Carrega LLaVA-Med (device_map="auto", ~13GB)
+      ├─→ Busca guidelines relevantes via RAG
+      ├─→ Gera vision prompt com contexto
+      ├─→ Processa imagem + gera findings
+      └─→ Descarrega LLaVA-Med (gc.collect + MPS cache clear)
+      ↓
+6. Stage 2: BioMistral Medical Report
+      ├─→ Carrega BioMistral-7B (device_map="auto", ~13GB)
+      ├─→ Busca guidelines + sample reports via RAG
+      ├─→ Gera medical prompt com vision findings
+      ├─→ Gera laudo radiológico profissional
+      └─→ Descarrega BioMistral (gc.collect + MPS cache clear)
+      ↓
+7. Retorna JSON com todos os resultados
+      ↓
+8. Cleanup: remove arquivos temporários
+```
+
+**Tempo médio:** ~0.5s (CNN) + ~38s (LLaVA-Med) + ~2s (unload) + ~8s (BioMistral) = **~49 segundos**
+
+**Memória:**
+- Peak: ~14GB (um modelo por vez)
+- Baseline: ~4GB (RAG + overhead)
+
+---
+
+### Fluxo 4: Busca Semântica (`POST /api/search/similar`)
 
 ```
 1. Cliente envia query text: "infiltrados bilaterais"
@@ -457,29 +572,34 @@ Para manter compatibilidade com versões anteriores da API (em português):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Host Machine                            │
+│                     Host Machine (M4 Pro 24GB)              │
 │                                                             │
-│  ┌──────────────────────┐     ┌─────────────────────────┐   │
-│  │   Ollama (Host)      │     │   Docker Containers     │   │
-│  │   - Port: 11434      │◄────┤                         │   │
-│  │   - GPU: macOS/CUDA  │     │  ┌──────────────────┐   │   │
-│  │   - Model: LLaVA 7B  │     │  │ PneumoFinder API │   │   │
-│  └──────────────────────┘     │  │ Port: 5001       │   │   │
-│                               │  │ Volumes:         │   │   │
-│                               │  │ - models/ (RO)   │   │   │
-│                               │  │ - database/      │   │   │
-│                               │  │ - temp/          │   │   │
-│                               │  └────────┬─────────┘   │   │
-│                               │           │             │   │
-│                               │  ┌────────▼─────────┐   │   │
-│                               │  │   ChromaDB       │   │   │
-│                               │  │   Port: 8000     │   │   │
-│                               │  │   Volume:        │   │   │
-│                               │  │   - chroma-data/ │   │   │
-│                               │  └──────────────────┘   │   │
-│                               └─────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              HuggingFace Models (Host)               │   │
+│  │  ┌─────────────────┐     ┌────────────────────┐      │   │
+│  │  │   LLaVA-Med     │     │   BioMistral-7B    │      │   │
+│  │  │   (Stage 1)     │     │   (Stage 2)        │      │   │
+│  │  │   ~13GB MPS+CPU │     │   ~13GB MPS+CPU    │      │   │
+│  │  └─────────────────┘     └────────────────────┘      │   │
+│  │  (Carregamento sequencial - apenas 1 por vez)        │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                               │                             │
+│  ┌──────────────────────┐     ▼                             │
+│  │   PneumoFinder API   │◄────────────────────────┐         │
+│  │   Port: 5001         │                         │         │
+│  │   - Flask            │     ┌───────────────────┴──────┐  │
+│  │   - MedicalPipeline  │     │       ChromaDB           │  │
+│  │   - CNN (ResNet50)   │◄────┤       Port: 8000         │  │
+│  │                      │     │       - Guidelines (31)  │  │
+│  └──────────────────────┘     │       - Sample Reports   │  │
+│                               └──────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Nota:** O pipeline atual executa no host (não containerizado) para:
+1. **Acesso MPS**: Apple Silicon requer drivers nativos
+2. **Memória**: 24GB unified memory não é virtualizável
+3. **Performance**: Evita overhead de container para modelos de 13GB
 
 ### Dockerfile Multi-Stage
 
@@ -570,13 +690,14 @@ volumes:
 
 **Arquivo:** `docker-compose.yml:1-45`
 
-### Por que Ollama fica no Host?
+### Por que os LLMs ficam no Host?
 
-O Ollama **NÃO** é containerizado porque:
+Os modelos LLaVA-Med e BioMistral **NÃO** são containerizados porque:
 
-1. **GPU Access**: macOS (Metal) e NVIDIA (CUDA) requerem drivers do host
-2. **Performance**: Overhead de virtualização prejudica inferência LLM
-3. **Simplicidade**: `host.docker.internal` permite comunicação direta
+1. **MPS Access**: Apple Silicon Metal Performance Shaders requer drivers nativos
+2. **Memória**: 24GB unified memory precisa de acesso direto (não virtualizado)
+3. **Device Map**: `device_map="auto"` divide modelo entre MPS e CPU/RAM
+4. **Performance**: Overhead de container adiciona latência significativa em modelos de 13GB
 
 ---
 
@@ -597,28 +718,32 @@ class Config:
     api_port: int = int(os.getenv("API_PORT", "5001"))
     debug_mode: bool = os.getenv("FLASK_DEBUG", "0") == "1"
 
-    # Modelos
+    # Modelos CNN
     cnn_model_path: str = os.getenv("CNN_MODEL_PATH", "models/pneumonia_model.keras")
 
-    # Ollama (LLM)
-    ollama_host: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    ollama_model: str = os.getenv("OLLAMA_MODEL", "llava:7b")
+    # Vision Model (Stage 1)
+    vision_model: str = os.getenv("VISION_MODEL", "llava-med")  # ou "llava-llama3"
 
-    # ChromaDB
-    chroma_host: str = os.getenv("CHROMA_HOST", "localhost")
-    chroma_port: int = int(os.getenv("CHROMA_PORT", "8000"))
+    # Medical Model (Stage 2)
+    medical_model: str = os.getenv("MEDICAL_MODEL", "BioMistral/BioMistral-7B")
+
+    # Device
+    device: str = os.getenv("DEVICE", "mps")  # "mps", "cuda", "cpu"
+    max_mps_memory: str = os.getenv("MAX_MPS_MEMORY", "10GiB")
+    max_cpu_memory: str = os.getenv("MAX_CPU_MEMORY", "16GiB")
+
+    # RAG
+    use_rag: bool = os.getenv("USE_RAG", "1") == "1"
+    chroma_persist_dir: str = os.getenv("CHROMA_PERSIST_DIR", "data/chroma")
 
     # Diretórios
     temp_dir: str = "temp"
     database_dir: str = "database"
 
-    # Prompts
-    medical_prompt_path: str = "prompts/medical_analysis.txt"
-
 config = Config()
 ```
 
-**Código:** `src/utils/config.py:1-35`
+**Código:** `src/utils/config.py`
 
 ### Variáveis de Ambiente Suportadas
 
@@ -627,26 +752,33 @@ config = Config()
 | `API_PORT`        | `5001`                         | Porta HTTP do Flask          |
 | `FLASK_DEBUG`     | `0`                            | Debug mode (0=off, 1=on)     |
 | `CNN_MODEL_PATH`  | `models/pneumonia_model.keras` | Caminho do modelo TensorFlow |
-| `OLLAMA_BASE_URL` | `http://localhost:11434`       | URL do servidor Ollama       |
-| `OLLAMA_MODEL`    | `llava:7b`                     | Modelo LLM a usar            |
-| `CHROMA_HOST`     | `localhost`                    | Hostname do ChromaDB         |
-| `CHROMA_PORT`     | `8000`                         | Porta do ChromaDB            |
+| `VISION_MODEL`    | `llava-med`                    | Modelo de visão (Stage 1)    |
+| `MEDICAL_MODEL`   | `BioMistral/BioMistral-7B`     | Modelo médico (Stage 2)      |
+| `DEVICE`          | `mps`                          | Device (mps/cuda/cpu)        |
+| `MAX_MPS_MEMORY`  | `10GiB`                        | Limite MPS para device_map   |
+| `MAX_CPU_MEMORY`  | `16GiB`                        | Limite CPU para device_map   |
+| `USE_RAG`         | `1`                            | Usar RAG grounding (1=on)    |
+| `CHROMA_PERSIST_DIR` | `data/chroma`               | Diretório ChromaDB           |
 
 ### Arquivo `.env` (Exemplo)
 
 ```bash
 # .env (não commitado no Git)
 FLASK_DEBUG=1
-OLLAMA_BASE_URL=http://localhost:11434
-CHROMA_HOST=localhost
-CHROMA_PORT=8000
+VISION_MODEL=llava-med
+DEVICE=mps
+USE_RAG=1
+
+# Limites de memória (M4 Pro 24GB)
+MAX_MPS_MEMORY=10GiB
+MAX_CPU_MEMORY=16GiB
 
 # Twilio (opcional, para WhatsApp)
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token_here
 ```
 
-**Arquivo:** `.env.example:1-10`
+**Arquivo:** `.env.example`
 
 ---
 
@@ -798,10 +930,14 @@ save_clinical_description(diagnosis_id, description, diagnosis, confidence)
 ## Referências
 
 - Flask Documentation: https://flask.palletsprojects.com/
-- Docker Best Practices: https://docs.docker.com/develop/dev-best-practices/
+- HuggingFace Transformers: https://huggingface.co/docs/transformers/
+- HuggingFace Accelerate (device_map): https://huggingface.co/docs/accelerate/
+- LLaVA-Med: https://github.com/microsoft/LLaVA-Med
+- BioMistral: https://huggingface.co/BioMistral/BioMistral-7B
+- ChromaDB: https://www.trychroma.com/
 - TensorFlow Serving: https://www.tensorflow.org/tfx/guide/serving (alternativa futura)
-- Gunicorn Deployment: https://docs.gunicorn.org/en/stable/deploy.html
 
 ---
 
-**Próximo documento:** `05_BANCO_DADOS_BUSCA.md` (Banco de dados relacional, vetorial e deduplicação)
+**Documento atualizado para TCC - PneumoFinder v3.0**
+**Última atualização:** Fevereiro 2026

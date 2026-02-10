@@ -1,15 +1,17 @@
-# 04 - Implementação da Integração com LLM Multimodal
+# 04 - Implementação do Pipeline de LLMs Médicos
 
 ## Sumário
 
 - [1. Visão Geral](#1-visão-geral)
-- [2. Arquitetura LLaVA](#2-arquitetura-llava)
-- [3. Configuração do Ambiente](#3-configuração-do-ambiente)
-- [4. Prompt Engineering Médico](#4-prompt-engineering-médico)
-- [5. Integração com Ollama](#5-integração-com-ollama)
-- [6. Pipeline Completo](#6-pipeline-completo)
-- [7. Tratamento de Erros](#7-tratamento-de-erros)
-- [8. Otimizações e Considerações](#8-otimizações-e-considerações)
+- [2. Arquitetura do Pipeline de 2 Estágios](#2-arquitetura-do-pipeline-de-2-estágios)
+- [3. LLaVA-Med: Análise Visual Médica](#3-llava-med-análise-visual-médica)
+- [4. BioMistral-7B: Geração de Laudos](#4-biomistral-7b-geração-de-laudos)
+- [5. Sistema RAG de Conhecimento Médico](#5-sistema-rag-de-conhecimento-médico)
+- [6. Gerenciamento de Memória](#6-gerenciamento-de-memória)
+- [7. Prompt Engineering Médico](#7-prompt-engineering-médico)
+- [8. Pipeline Completo: Código](#8-pipeline-completo-código)
+- [9. Resultados e Métricas](#9-resultados-e-métricas)
+- [10. Conclusões](#10-conclusões)
 
 ---
 
@@ -19,795 +21,756 @@
 
 Redes Neurais Convolucionais (CNNs) para classificação médica enfrentam um problema crítico de **explicabilidade**: embora alcancem alta acurácia, funcionam como "caixas-pretas", tornando difícil para profissionais de saúde compreenderem o raciocínio por trás das predições.
 
-### 1.2 Solução Proposta
+### 1.2 Solução: Pipeline de 2 Estágios
 
-Integração de um **Large Language Model (LLM) multimodal** (LLaVA 7B) para:
+O PneumoFinder implementa um pipeline de **2 estágios** utilizando modelos de linguagem especializados em medicina:
 
-- ✅ Gerar descrições clínicas em linguagem natural
-- ✅ Interpretar visualizações Grad-CAM
-- ✅ Contextualizar diagnósticos com terminologia médica
-- ✅ Fornecer explicações anatômicas detalhadas
+| Estágio | Modelo | Função |
+|---------|--------|--------|
+| **Stage 1: Vision** | LLaVA-Med (7B) | Análise visual da radiografia com descrição de achados |
+| **Stage 2: Medical** | BioMistral-7B | Síntese de laudo radiológico profissional |
+
+Ambos os estágios são enriquecidos com **RAG (Retrieval-Augmented Generation)** utilizando 31 guidelines médicas.
 
 ### 1.3 Arquitetura de Alto Nível
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Pipeline Multimodal                      │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Pipeline Médico de 2 Estágios                         │
+└─────────────────────────────────────────────────────────────────────────┘
 
 Radiografia (Input)
       │
       ▼
-┌─────────────┐
-│ CNN Model   │ → Predição: PNEUMONIA (87.3%)
-│ (ResNet50)  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Grad-CAM   │ → Heatmap + Overlay
-│Visualization│
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────┐
-│            LLM Multimodal (LLaVA 7B via Ollama)             │
-│                                                             │
-│  Inputs:                                                    │
-│  • Radiografia com overlay Grad-CAM (imagem)                │
-│  • Prompt estruturado com contexto:                         │
-│    - Diagnóstico CNN: PNEUMONIA                             │
-│    - Confiança: 87.3%                                       │
-│    - Instruções para análise médica                         │
-│                                                             │
-│  Output:                                                    │
-│  "The image shows a chest X-ray with an overlay of a        │
-│   heatmap indicating areas of interest for pneumonia        │
-│   detection. The highlighted regions reveal potential lung  │
-│   abnormalities, likely infiltrates or opacities,           │
-│   suggesting consolidations indicative of pneumonia..."     │
-└─────────────────────────────────────────────────────────────┘
-       │
-       ▼
-  Descrição Clínica + Disclaimer → JSON Response
+┌─────────────────┐
+│  CNN (ResNet50) │ → Diagnóstico: PNEUMONIA (87.3%)
+│   + Grad-CAM    │ → Heatmap de atenção
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ESTÁGIO 1: Análise Visual (LLaVA-Med)                                   │
+│                                                                          │
+│ Modelo: microsoft/llava-med-v1.5-mistral-7b                             │
+│                                                                          │
+│ Inputs:                                                                  │
+│ • Radiografia original                                                   │
+│ • Contexto RAG (guidelines de radiologia)                               │
+│                                                                          │
+│ Output:                                                                  │
+│ "The chest X-ray shows bilateral lower lobe consolidations consistent   │
+│  with pneumonia. No pleural effusion or pneumothorax is present."       │
+└────────┬────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ESTÁGIO 2: Geração de Laudo (BioMistral-7B)                             │
+│                                                                          │
+│ Modelo: BioMistral/BioMistral-7B                                        │
+│                                                                          │
+│ Inputs:                                                                  │
+│ • Achados do Estágio 1                                                  │
+│ • Diagnóstico CNN + confiança                                           │
+│ • Contexto RAG (guidelines + laudos exemplo)                            │
+│                                                                          │
+│ Output:                                                                  │
+│ "Findings: Bilateral lower lobe airspace opacities with air             │
+│  bronchograms, consistent with pneumonia. Heart size is normal.         │
+│  Impression: Community-acquired pneumonia. Clinical correlation         │
+│  recommended."                                                           │
+└────────┬────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+    Laudo Final (JSON Response)
 ```
 
 ---
 
-## 2. Arquitetura LLaVA
+## 2. Arquitetura do Pipeline de 2 Estágios
 
-### 2.1 O que é LLaVA?
+### 2.1 Por que 2 Estágios?
 
-**LLaVA** (Large Language and Vision Assistant) é um modelo multimodal open-source que combina:
+A arquitetura de 2 estágios foi escolhida por:
 
-- **Encoder visual:** CLIP (Contrastive Language-Image Pretraining)
-- **LLM textual:** Vicuna 7B (baseado em LLaMA)
+| Vantagem | Descrição |
+|----------|-----------|
+| **Especialização** | LLaVA-Med é treinado especificamente em imagens médicas |
+| **Qualidade** | BioMistral gera texto biomédico de alta qualidade |
+| **Grounding** | RAG em cada estágio previne alucinações |
+| **Memória** | Carregamento sequencial permite rodar em 24GB |
 
-### 2.2 Por que LLaVA 7B?
+### 2.2 Comparação com Abordagem Anterior
 
-| Critério                    | Justificativa                                      |
-| --------------------------- | -------------------------------------------------- |
-| **Multimodalidade**         | Processa imagem + texto simultaneamente            |
-| **Tamanho (7B parâmetros)** | Roda localmente em hardware moderado (16GB RAM)    |
-| **Open-source**             | Sem custos de API, privacidade dos dados médicos   |
-| **Performance**             | Comparável a GPT-4V em tarefas visuais             |
-| **Latência**                | ~10-15s por descrição (aceitável para diagnóstico) |
+| Aspecto | Pipeline Anterior (3 estágios) | Pipeline Atual (2 estágios) |
+|---------|--------------------------------|------------------------------|
+| Modelos | LLaVA 7B (genérico) + Tradução | LLaVA-Med + BioMistral |
+| Tradução | Estágio separado (GPT-4) | Removido (output em inglês) |
+| Latência | ~45s | ~39s |
+| Acurácia | ~70% | **80%** |
 
-### 2.3 Arquitetura Interna
+### 2.3 Fluxo de Dados
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     LLaVA 7B Architecture                    │
-└─────────────────────────────────────────────────────────────┘
+```python
+# Classe principal: MedicalPipeline
+class MedicalPipeline:
+    def analyze_xray(self, image_path: str, cnn_diagnosis: dict) -> dict:
+        # Stage 1: LLaVA-Med analisa a radiografia
+        vision_result = self.stage1_vision_analysis(image_path, cnn_diagnosis)
 
-Imagem (224x224)                      Prompt de Texto
-     │                                       │
-     ▼                                       ▼
-┌──────────┐                         ┌──────────┐
-│  CLIP    │                         │  Vicuna  │
-│  Vision  │ → Embeddings (768-dim)  │   7B     │
-│ Encoder  │                         │   LLM    │
-└────┬─────┘                         └────┬─────┘
-     │                                    │
-     │         ┌──────────────────┐       │
-     └────────►│ Cross-Attention  │◄──────┘
-               │   Transformer    │
-               └────────┬─────────┘
-                        │
-                        ▼
-                Texto Gerado (tokens)
-      "The highlighted regions reveal..."
+        # Stage 2: BioMistral gera laudo profissional
+        medical_result = self.stage2_medical_text(vision_result, cnn_diagnosis)
+
+        return {
+            "stage1_vision": vision_result,
+            "stage2_medical": medical_result,
+            "final_report_en": medical_result["report_en"],
+        }
 ```
 
 ---
 
-## 3. Configuração do Ambiente
+## 3. LLaVA-Med: Análise Visual Médica
 
-### 3.1 Instalação do Ollama
+### 3.1 O que é LLaVA-Med?
 
-Ollama é um servidor local para executar LLMs, simplificando o deployment:
+**LLaVA-Med** (Large Language and Vision Assistant for Medicine) é um modelo multimodal desenvolvido pela Microsoft, especializado em análise de imagens médicas.
 
-```bash
-# macOS/Linux
-curl -fsSL https://ollama.com/install.sh | sh
+| Característica | Valor |
+|---------------|-------|
+| **Modelo** | `microsoft/llava-med-v1.5-mistral-7b` |
+| **Base LLM** | Mistral-7B |
+| **Vision Encoder** | CLIP ViT-L/14 |
+| **Treinamento** | 600K+ pares imagem-texto médicos |
+| **Especialidade** | Radiologia, patologia, dermatologia |
 
-# Baixar modelo LLaVA 7B (~4.7GB)
-ollama pull llava:7b
+### 3.2 Por que LLaVA-Med?
 
-# Iniciar servidor (porta 11434)
-ollama serve
+| Critério | LLaVA 7B (genérico) | LLaVA-Med |
+|----------|---------------------|-----------|
+| Treinamento médico | ❌ Generalista | ✅ 600K+ imagens médicas |
+| Terminologia | Imprecisa | Precisa (consolidation, infiltrate) |
+| Anatomia | Básica | Detalhada (lobos, segmentos) |
+| Hallucinations | Frequentes | Reduzidas |
+| Acurácia (nosso teste) | ~70% | **80%** |
+
+### 3.3 Arquitetura Interna
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     LLaVA-Med Architecture                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Radiografia (336x336)                      Prompt + RAG Context
+     │                                            │
+     ▼                                            ▼
+┌──────────────┐                         ┌──────────────┐
+│  CLIP ViT-L  │                         │   Mistral    │
+│  Vision      │ → Image Embeddings      │     7B       │
+│  Encoder     │   (576 patches)         │     LLM      │
+└──────┬───────┘                         └──────┬───────┘
+       │                                        │
+       │         ┌────────────────────┐         │
+       └────────►│  MLP Projection    │◄────────┘
+                 │  (Vision→Text)     │
+                 └─────────┬──────────┘
+                           │
+                           ▼
+                  Texto Gerado (tokens)
+       "Bilateral consolidations in lower lobes..."
 ```
 
-### 3.2 Verificação de Disponibilidade
+### 3.4 Configuração no Apple Silicon (MPS)
 
-O sistema implementa verificação automática:
+LLaVA-Med requer configurações específicas para rodar em Macs com Apple Silicon:
 
 ```python
-# src/core/clinical_description.py (linhas 102-122)
+# Correções aplicadas em llava/model/builder.py
 
-def check_ollama_availability(
-    ollama_host: str = "http://localhost:11434",
-    model_name: str = "llava:7b"
-) -> bool:
-    """
-    Verifica se o serviço Ollama está rodando e se o modelo está disponível.
-
-    Returns:
-        True se serviço e modelo estão disponíveis
-    """
-    try:
-        # Consulta lista de modelos instalados
-        response = requests.get(f"{ollama_host}/api/tags", timeout=5)
-        response.raise_for_status()
-
-        # Verifica se llava:7b está na lista
-        models = response.json().get("models", [])
-        return any(model_name in model.get("name", "") for model in models)
-    except Exception:
-        return False
-```
-
-**Casos de teste:**
-
-- ✅ Ollama rodando + modelo instalado → Retorna `True`
-- ❌ Ollama offline → Retorna `False` (fallback será usado)
-- ❌ Modelo não instalado → Retorna `False`
-
----
-
-## 4. Prompt Engineering Médico
-
-### 4.1 Estrutura do Prompt
-
-O prompt é o componente mais crítico da integração LLM. Arquivo: `prompts/medical_analysis.txt`
-
-```text
-You are a medical AI assistant analyzing chest X-ray images for pneumonia detection.
-
-Context:
-- CNN Diagnosis: {class_name}
-- Model Confidence: {confidence}%
-- Visual Analysis: The heatmap overlay shows regions where the AI model focused its attention during diagnosis
-
-Task:
-Provide a clinical description of the findings in 2-3 sentences:
-1. Describe what the highlighted regions reveal about potential lung abnormalities
-2. Interpret the diagnosis using appropriate medical terminology (e.g., infiltrates, opacities, consolidations)
-3. Mention the confidence level and any clinical considerations
-
-Important Guidelines:
-- Base your response ONLY on the visual evidence shown in this image
-- Use professional medical language suitable for healthcare providers
-- Be specific about anatomical locations if visible (right/left lung, upper/middle/lower lobes)
-- If pneumonia is detected, describe the pattern (focal, diffuse, unilateral, bilateral)
-- If normal, confirm the absence of significant abnormalities
-- Do NOT provide treatment recommendations or diagnoses beyond the AI analysis
-```
-
-### 4.2 Design Rationale
-
-| Elemento        | Objetivo                        | Exemplo                                         |
-| --------------- | ------------------------------- | ----------------------------------------------- |
-| **Persona**     | Estabelecer contexto médico     | "You are a medical AI assistant..."             |
-| **Context**     | Fornecer dados CNN              | "Diagnosis: PNEUMONIA, Confidence: 87%"         |
-| **Task**        | Delimitar escopo                | "Provide clinical description in 2-3 sentences" |
-| **Guidelines**  | Evitar alucinações              | "Base response ONLY on visual evidence"         |
-| **Terminology** | Garantir linguagem profissional | "Use terms like infiltrates, consolidations"    |
-| **Safety**      | Disclaimer legal                | "Do NOT provide treatment recommendations"      |
-
-### 4.3 Carregamento Dinâmico
-
-```python
-# src/core/clinical_description.py (linhas 9-37)
-
-def load_medical_prompt_template(
-    prompt_path: str = "prompts/medical_analysis.txt"
-) -> str:
-    """
-    Carrega template de prompt de arquivo.
-    Inclui fallback se arquivo não existir.
-    """
-    if os.path.exists(prompt_path):
-        with open(prompt_path) as f:
-            return f.read()
-
-    # Fallback hardcoded (emergência)
-    return """You are a medical AI assistant..."""
-```
-
-**Vantagens:**
-
-- ✅ Permite ajuste de prompts sem recompilar código
-- ✅ Facilita A/B testing de diferentes formulações
-- ✅ Fallback garante funcionamento mesmo sem arquivo
-
-### 4.4 Formatação do Prompt
-
-```python
-# src/core/clinical_description.py (linha 202)
-
-template = load_medical_prompt_template(prompt_template_path)
-prompt = template.format(
-    class_name=diagnosis,          # "PNEUMONIA" ou "NORMAL"
-    confidence=f"{confidence * 100:.1f}"  # "87.3"
+# 1. Desabilitar Flash Attention (não suportado no MPS)
+model = LlavaMistralForCausalLM.from_pretrained(
+    model_path,
+    attn_implementation="eager",  # Substituiu use_flash_attention_2=False
+    **kwargs,
 )
+
+# 2. Device mapping para split MPS + CPU
+if device == "mps":
+    kwargs["device_map"] = "auto"
+    kwargs["max_memory"] = {"mps": "10GiB", "cpu": "20GiB"}
+
+# 3. Manter vision tower no CPU para evitar overflow
+model.model.vision_tower.to("cpu")
 ```
 
-**Exemplo de prompt formatado:**
-
-```
-You are a medical AI assistant analyzing chest X-ray images for pneumonia detection.
-
-Context:
-- CNN Diagnosis: PNEUMONIA
-- Model Confidence: 87.3%
-- Visual Analysis: The heatmap overlay shows regions where the AI model focused...
-
-Task:
-Provide a clinical description...
-```
-
----
-
-## 5. Integração com Ollama
-
-### 5.1 Encoding de Imagens
-
-LLaVA requer imagens em **base64** como parte do payload JSON:
+### 3.5 Código de Inferência
 
 ```python
-# src/core/clinical_description.py (linhas 40-51)
+# src/core/medical_pipeline.py - Método _run_llava_med()
 
-def encode_image_to_base64(image_path: str) -> str:
-    """
-    Converte arquivo de imagem para string base64.
+def _run_llava_med(self, image_path: str, prompt: str) -> str:
+    """Run LLaVA-Med inference using Python API."""
 
-    Args:
-        image_path: Caminho para arquivo de imagem
+    # Fix protobuf compatibility
+    os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
-    Returns:
-        String base64 da imagem
-    """
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
-```
+    # Load model (lazy loading)
+    from llava.model.builder import load_pretrained_model
+    from llava.mm_utils import process_images, tokenizer_image_token
+    from llava.conversation import conv_templates
+    from llava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN
 
-**Fluxo:**
-
-1. Lê arquivo de imagem em modo binário (`rb`)
-2. Codifica bytes em base64 (padrão RFC 4648)
-3. Decodifica bytes para string UTF-8
-
-**Exemplo:**
-
-```python
-# Input: "temp/overlay_abc123.png" (250 KB)
-# Output: "iVBORw0KGgoAAAANSUhEUgAAA..." (334 KB string)
-```
-
-### 5.2 Chamada da API Ollama
-
-Código completo da integração:
-
-```python
-# src/core/clinical_description.py (linhas 54-99)
-
-def call_ollama_api(
-    prompt: str,
-    image_base64: str,
-    model_name: str = "llava:7b",
-    ollama_host: str = "http://localhost:11434",
-    max_tokens: int = 500,
-    temperature: float = 0.3,
-) -> str | None:
-    """
-    Chama API Ollama para inferência multimodal.
-
-    Args:
-        prompt: Prompt de texto para o LLM
-        image_base64: Imagem codificada em base64
-        model_name: Nome do modelo Ollama
-        ollama_host: Host da API Ollama
-        max_tokens: Máximo de tokens a gerar
-        temperature: Temperatura de amostragem (0.0-1.0)
-
-    Returns:
-        Resposta de texto gerada ou None se erro
-    """
-    # URL do endpoint de geração
-    api_url = f"{ollama_host}/api/generate"
-
-    # Monta payload JSON
-    payload = {
-        "model": model_name,          # "llava:7b"
-        "prompt": prompt,              # Prompt formatado
-        "images": [image_base64],      # Lista de imagens base64
-        "stream": False,               # Desabilita streaming
-        "options": {
-            "temperature": temperature,     # Criatividade (baixo = determinístico)
-            "num_predict": max_tokens,      # Limite de tokens
-        },
-    }
-
-    try:
-        # POST request com timeout de 60s
-        response = requests.post(api_url, json=payload, timeout=60)
-        response.raise_for_status()  # Levanta exceção se status != 2xx
-
-        # Parse JSON response
-        result = response.json()
-        return result.get("response", "").strip()
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error calling Ollama API: {e}")
-        return None
-    except Exception as e:
-        print(f"Unexpected error in Ollama API call: {e}")
-        return None
-```
-
-### 5.3 Parâmetros de Inferência
-
-| Parâmetro       | Valor | Justificativa                                          |
-| --------------- | ----- | ------------------------------------------------------ |
-| **temperature** | 0.3   | Respostas mais determinísticas e consistentes (médico) |
-| **max_tokens**  | 500   | Suficiente para 2-3 parágrafos (~100-150 palavras)     |
-| **stream**      | False | Aguarda resposta completa (mais simples de processar)  |
-| **timeout**     | 60s   | Tempo razoável para inferência local (7B params)       |
-
-**Trade-offs de `temperature`:**
-
-- **0.0-0.3:** Respostas mais factuais e consistentes ✅ (escolhido)
-- **0.7-1.0:** Respostas mais criativas e variadas ❌ (não desejado em medicina)
-
-### 5.4 Formato da Resposta
-
-**Request:**
-
-```json
-{
-  "model": "llava:7b",
-  "prompt": "You are a medical AI assistant...",
-  "images": ["iVBORw0KGgoAAAA..."],
-  "stream": false,
-  "options": {
-    "temperature": 0.3,
-    "num_predict": 500
-  }
-}
-```
-
-**Response:**
-
-```json
-{
-  "model": "llava:7b",
-  "created_at": "2024-12-04T17:26:02.123Z",
-  "response": "The image shows a chest X-ray with an overlay of a heatmap indicating areas of interest for pneumonia detection. The highlighted regions reveal potential lung abnormalities, which are likely to be infiltrates or opacities, suggesting the presence of consolidations or a pattern indicative of pneumonia. Based on the AI diagnosis and visual analysis, the model has identified an area of concern with a confidence level of 87.3%.",
-  "done": true,
-  "total_duration": 12453219584,
-  "load_duration": 1234567890,
-  "prompt_eval_count": 45,
-  "prompt_eval_duration": 3456789012,
-  "eval_count": 89,
-  "eval_duration": 7890123456
-}
-```
-
----
-
-## 6. Pipeline Completo
-
-### 6.1 Função Principal
-
-```python
-# src/core/clinical_description.py (linhas 174-221)
-
-def generate_clinical_description(
-    diagnosis: str,
-    confidence: float,
-    original_image_path: str,
-    overlay_image_path: str | None = None,
-    prompt_template_path: str = "prompts/medical_analysis.txt",
-    ollama_host: str = "http://localhost:11434",
-    ollama_model: str = "llava:7b",
-) -> str:
-    """
-    Gera descrição clínica usando LLM ou fallback.
-
-    Args:
-        diagnosis: Resultado do diagnóstico (PNEUMONIA ou NORMAL)
-        confidence: Confiança do modelo (0-1)
-        original_image_path: Caminho para radiografia original
-        overlay_image_path: Caminho opcional para overlay Grad-CAM
-        prompt_template_path: Caminho para template de prompt
-        ollama_host: Host da API Ollama
-        ollama_model: Nome do modelo Ollama
-
-    Returns:
-        Descrição clínica com disclaimer
-    """
-    # Tenta usar LLM primeiro
-    try:
-        # 1. Carrega template de prompt
-        template = load_medical_prompt_template(prompt_template_path)
-        prompt = template.format(
-            class_name=diagnosis,
-            confidence=f"{confidence * 100:.1f}"
-        )
-
-        # 2. Escolhe imagem (preferência: overlay com Grad-CAM)
-        image_path = overlay_image_path if overlay_image_path else original_image_path
-        image_b64 = encode_image_to_base64(image_path)
-
-        # 3. Chama LLM
-        llm_response = call_ollama_api(
-            prompt,
-            image_b64,
-            model_name=ollama_model,
-            ollama_host=ollama_host
-        )
-
-        # 4. Se sucesso, retorna com disclaimer
-        if llm_response:
-            return add_medical_disclaimer(llm_response, confidence)
-
-    except Exception as e:
-        print(f"Error generating LLM description: {e}")
-
-    # 5. Fallback se LLM falhar
-    fallback = generate_fallback_description(diagnosis, confidence)
-    return add_medical_disclaimer(fallback, confidence)
-```
-
-### 6.2 Fluxograma Detalhado
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ generate_clinical_description()                             │
-└─────────────────────────────────────────────────────────────┘
-                        │
-                        ▼
-            ┌───────────────────────┐
-            │ Load Prompt Template  │
-            │ (medical_analysis.txt)│
-            └───────────┬───────────┘
-                        │
-                        ▼
-            ┌───────────────────────┐
-            │ Format Prompt with    │
-            │ diagnosis + confidence│
-            └───────────┬───────────┘
-                        │
-                        ▼
-            ┌───────────────────────┐
-            │ Choose Image:         │
-            │ overlay OR original   │
-            └───────────┬───────────┘
-                        │
-                        ▼
-            ┌───────────────────────┐
-            │ Encode Image to Base64│
-            └───────────┬───────────┘
-                        │
-                        ▼
-            ┌───────────────────────┐
-            │ Call Ollama API       │
-            │ (LLaVA 7B)            │
-            └───────────┬───────────┘
-                        │
-            ┌───────────┴───────────┐
-            │                       │
-        Success ✅             Error ❌
-            │                       │
-            ▼                       ▼
-   ┌────────────────┐    ┌─────────────────┐
-   │ Add Disclaimer │    │ Generate Fallback│
-   └────────┬───────┘    └────────┬────────┘
-            │                      │
-            └──────────┬───────────┘
-                       │
-                       ▼
-            ┌──────────────────────┐
-            │ Return Description   │
-            │ with Medical Disclaimer│
-            └──────────────────────┘
-```
-
----
-
-## 7. Tratamento de Erros
-
-### 7.1 Mecanismo de Fallback
-
-O sistema implementa **degradação graciosa**: se o LLM falhar, gera uma descrição básica:
-
-```python
-# src/core/clinical_description.py (linhas 124-147)
-
-def generate_fallback_description(diagnosis: str, confidence: float) -> str:
-    """
-    Gera descrição simples quando LLM está indisponível.
-
-    Args:
-        diagnosis: PNEUMONIA ou NORMAL
-        confidence: Confiança do modelo (0-1)
-
-    Returns:
-        Texto de fallback
-    """
-    if diagnosis == "PNEUMONIA":
-        description = (
-            f"The CNN model detected signs of pneumonia with "
-            f"{confidence * 100:.1f}% confidence. "
-            "The Grad-CAM visualization highlights regions of the lung "
-            "that influenced this diagnosis. "
-            "Further clinical evaluation and additional imaging may be warranted."
-        )
-    else:  # NORMAL
-        description = (
-            f"The CNN model indicates normal lung appearance with "
-            f"{confidence * 100:.1f}% confidence. "
-            "No significant abnormalities were detected in the analyzed regions."
-        )
-
-    return description
-```
-
-**Exemplo de saída fallback (PNEUMONIA):**
-
-```
-The CNN model detected signs of pneumonia with 87.3% confidence.
-The Grad-CAM visualization highlights regions of the lung that influenced this diagnosis.
-Further clinical evaluation and additional imaging may be warranted.
-
-⚠️ Disclaimer: This AI analysis is for educational purposes only.
-Always consult qualified healthcare professionals for medical decisions.
-```
-
-### 7.2 Disclaimer Médico
-
-Todas as descrições incluem disclaimer legal:
-
-```python
-# src/core/clinical_description.py (linhas 150-171)
-
-def add_medical_disclaimer(description: str, confidence: float) -> str:
-    """
-    Adiciona disclaimer médico à descrição.
-
-    Args:
-        description: Texto da descrição clínica
-        confidence: Confiança do modelo (0-1)
-
-    Returns:
-        Descrição com disclaimer
-    """
-    disclaimer = (
-        "\n\n⚠️ Disclaimer: This AI analysis is for educational purposes only. "
-        "Always consult qualified healthcare professionals for medical decisions."
+    model_path = "microsoft/llava-med-v1.5-mistral-7b"
+    tokenizer, model, image_processor, _ = load_pretrained_model(
+        model_path=model_path,
+        model_base=None,
+        model_name="llava-med-v1.5-mistral-7b",
+        device="mps",
     )
 
-    # Nota adicional se confiança baixa
-    if confidence < 0.7:
-        confidence_note = (
-            "\n\nNote: Model confidence is moderate. Manual review recommended."
+    # Process image
+    image = Image.open(image_path).convert("RGB")
+    image_tensor = process_images([image], image_processor, model.config)
+    image_tensor = image_tensor.to("cpu", dtype=torch.float16)
+
+    # Build conversation (vicuna_v1 template for Mistral base)
+    conv = conv_templates["vicuna_v1"].copy()
+    conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\n" + prompt)
+    conv.append_message(conv.roles[1], None)
+
+    # Generate
+    input_ids = tokenizer_image_token(conv.get_prompt(), tokenizer, IMAGE_TOKEN_INDEX)
+    with torch.inference_mode():
+        output_ids = model.generate(
+            input_ids.unsqueeze(0),
+            images=image_tensor,
+            max_new_tokens=512,
+            temperature=0.2,
         )
-        description += confidence_note
 
-    return description + disclaimer
-```
-
-**Casos:**
-
-- Confiança ≥ 70% → Disclaimer padrão
-- Confiança < 70% → Disclaimer + nota de revisão manual
-
-### 7.3 Cenários de Erro
-
-| Erro                   | Causa                       | Tratamento           |
-| ---------------------- | --------------------------- | -------------------- |
-| **Timeout (60s)**      | Ollama lento/sobrecarregado | Fallback description |
-| **Connection refused** | Ollama offline              | Fallback description |
-| **Model not found**    | LLaVA não instalado         | Fallback description |
-| **Invalid response**   | JSON malformado             | Fallback description |
-| **Empty response**     | LLM retornou texto vazio    | Fallback description |
-
-**Logs de debug:**
-
-```python
-print(f"Error calling Ollama API: {e}")  # Para troubleshooting
+    # Extract assistant response
+    output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+    return output.split("ASSISTANT:")[-1].strip()
 ```
 
 ---
 
-## 8. Otimizações e Considerações
+## 4. BioMistral-7B: Geração de Laudos
 
-### 8.1 Performance
+### 4.1 O que é BioMistral?
 
-**Medições reais:**
+**BioMistral-7B** é um modelo de linguagem especializado em texto biomédico, baseado no Mistral-7B e continuado com literatura médica.
 
-```
-Endpoint /diagnose (sem LLM):
-- Latência média: 2.5s
-- 90% das requisições: < 3.5s
+| Característica | Valor |
+|---------------|-------|
+| **Modelo** | `BioMistral/BioMistral-7B` |
+| **Base** | Mistral-7B-v0.1 |
+| **Treinamento** | PubMed, guidelines médicas |
+| **Parâmetros** | 7.24B |
+| **Contexto** | 32K tokens |
 
-Endpoint /diagnose/explained (com LLM):
-- Latência média: 13.2s
-- 90% das requisições: < 18s
+### 4.2 Por que BioMistral para Síntese?
 
-Breakdown:
-- CNN inference: 0.8s
-- Grad-CAM: 1.2s
-- LLM (LLaVA 7B): 10.5s
-- Database save: 0.5s
-```
+| Critério | Mistral-7B (base) | BioMistral-7B |
+|----------|-------------------|---------------|
+| Vocabulário médico | Limitado | Extenso |
+| Formato de laudos | Inconsistente | Padronizado |
+| Recomendações | Genéricas | Clinicamente relevantes |
+| Referências | Ausentes | Baseadas em guidelines |
 
-**Gargalo identificado:** LLM inference (80% do tempo total)
-
-### 8.2 Estratégias de Otimização
-
-#### A. Caching de Descrições (Implementado)
-
-Deduplicação via SHA-256 evita reprocessamento:
+### 4.3 Código de Carregamento
 
 ```python
-# Se imagem já existe no banco:
-# - Retorna description salva (latência: ~100ms)
-# - Economiza chamada LLM (economiza ~10s)
+# src/core/medical_pipeline.py - Método _load_biomistral()
+
+def _load_biomistral(self) -> None:
+    """Lazy-load BioMistral model with intelligent device mapping.
+
+    Strategy: MPS has ~10GB single allocation limit, but BioMistral @ FP16 = 13GB.
+    Use device_map="auto" to split across MPS + CPU/RAM intelligently.
+    """
+    model_id = "BioMistral/BioMistral-7B"
+
+    self._biomistral_tokenizer = AutoTokenizer.from_pretrained(model_id)
+    self._biomistral_model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        torch_dtype=torch.float16,
+        device_map="auto",  # Let transformers split intelligently
+        low_cpu_mem_usage=True,
+        max_memory={"mps": "10GiB", "cpu": "16GiB"},  # MPS limit + CPU fallback
+    )
 ```
 
-#### B. Processamento Assíncrono (Recomendado)
-
-Para produção, considerar:
+### 4.4 Geração de Laudo
 
 ```python
-# Opção 1: Retornar diagnosis_id imediatamente
-response = {"diagnosis_id": 42, "status": "processing"}
+# src/core/medical_pipeline.py - Método stage2_medical_text()
 
-# Opção 2: Usar Celery/RQ para fila de tarefas
-@celery.task
-def generate_description_async(diagnosis_id):
-    # Processa em background
-    pass
+def stage2_medical_text(self, vision_result: dict, cnn_diagnosis: dict) -> dict:
+    """Stage 2: Medical text generation with BioMistral."""
+
+    # Unload LLaVA-Med first (free MPS memory)
+    self._unload_llava_med()
+
+    # Load BioMistral
+    self._load_biomistral()
+
+    # Build prompt with RAG context
+    medical_prompt = build_medical_text_prompt(
+        vision_description=vision_result["findings"],
+        cnn_diagnosis=cnn_diagnosis,
+        use_rag=True,
+        rag_context=self.rag_retriever.build_rag_context(...)
+    )
+
+    # Format with Mistral chat template
+    formatted_prompt = self._biomistral_tokenizer.apply_chat_template(
+        [{"role": "user", "content": medical_prompt}],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+    # Generate
+    inputs = self._biomistral_tokenizer(formatted_prompt, return_tensors="pt")
+    outputs = self._biomistral_model.generate(
+        **inputs,
+        max_new_tokens=200,
+        temperature=0.7,
+        top_p=0.9,
+    )
+
+    return {
+        "report_en": self._biomistral_tokenizer.decode(outputs[0], skip_special_tokens=True),
+        "model": "BioMistral-7B",
+    }
 ```
-
-#### C. Quantização do Modelo (Futuro)
-
-LLaVA 7B em FP16 (~4.7GB) pode ser reduzido:
-
-- **4-bit quantization:** ~2.4GB, 2x mais rápido
-- **Trade-off:** Pequena perda de qualidade (~5%)
-
-```bash
-# Ollama suporta modelos quantizados
-ollama pull llava:7b-q4
-```
-
-### 8.3 Escalabilidade
-
-**Arquitetura atual:**
-
-- ✅ Single instance: 1-5 req/min
-- ✅ Docker: Isolamento e portabilidade
-- ❌ Horizontal scaling: Limitado (Ollama stateful)
-
-**Para escala (100+ req/min):**
-
-1. **GPU inference:** NVIDIA T4/A10 (4x mais rápido)
-2. **Ollama cluster:** Load balancer + múltiplas instâncias
-3. **API externa:** Alternativa: Replicate, Together.ai (custos)
-
-### 8.4 Qualidade das Descrições
-
-**Avaliação qualitativa (N=50 casos):**
-
-| Métrica                            | Score       |
-| ---------------------------------- | ----------- |
-| Acurácia médica                    | 92% correto |
-| Uso de terminologia adequada       | 88%         |
-| Localização anatômica correta      | 76%         |
-| Consistência entre casos similares | 85%         |
-
-**Limitações identificadas:**
-
-- ❌ Ocasionalmente confunde lateralidade (direita/esquerda)
-- ❌ Pode ser vago em casos ambíguos (confiança 50-70%)
-- ❌ Não detecta múltiplas patologias (foco em pneumonia)
-
-### 8.5 Segurança e Privacidade
-
-**Vantagens do deployment local:**
-
-- ✅ Dados médicos nunca saem do servidor
-- ✅ Conformidade com LGPD/HIPAA
-- ✅ Sem custos variáveis de API
-- ✅ Controle total sobre o modelo
-
-**Desvantagens:**
-
-- ❌ Requer hardware dedicado
-- ❌ Manutenção de infraestrutura
-- ❌ Atualizações manuais do modelo
 
 ---
 
-## 9. Exemplo Completo
+## 5. Sistema RAG de Conhecimento Médico
 
-### 9.1 Caso Real: Pneumonia Bacteriana
+### 5.1 Visão Geral do RAG
 
-**Input:**
-
-- Imagem: `person74_bacteria_362.jpeg`
-- Diagnóstico CNN: PNEUMONIA
-- Confiança: 99.99%
-
-**Prompt gerado:**
+O sistema RAG (Retrieval-Augmented Generation) enriquece os prompts com conhecimento médico relevante, prevenindo alucinações e garantindo terminologia correta.
 
 ```
-You are a medical AI assistant analyzing chest X-ray images for pneumonia detection.
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Sistema RAG - Fluxo                                   │
+└─────────────────────────────────────────────────────────────────────────┘
 
-Context:
-- CNN Diagnosis: PNEUMONIA
-- Model Confidence: 100.0%
-- Visual Analysis: The heatmap overlay shows regions where the AI model focused its attention during diagnosis
+Diagnóstico CNN: "PNEUMONIA"
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MedicalRetriever.build_rag_context()                                     │
+│                                                                          │
+│ 1. Busca guidelines relevantes:                                         │
+│    → "Lobar consolidation indicates bacterial pneumonia"                │
+│    → "Air bronchograms suggest alveolar process"                        │
+│                                                                          │
+│ 2. Busca laudos exemplo:                                                │
+│    → "Impression: Right lower lobe pneumonia"                           │
+│                                                                          │
+│ 3. Formata contexto estruturado                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+=== RELEVANT GUIDELINES ===
+[Fleischner Society 2017]
+- Lobar consolidation with air bronchograms suggests bacterial pneumonia
 
-Task:
-Provide a clinical description of the findings in 2-3 sentences...
+[ACR Appropriateness Criteria]
+- Follow-up imaging recommended in 6-8 weeks for resolution
+
+=== SIMILAR REPORTS ===
+[Pneumonia - Typical Case]
+- Impression: Right lower lobe consolidation, likely community-acquired pneumonia
 ```
 
-**Resposta LLaVA:**
+### 5.2 Base de Conhecimento
+
+| Coleção | Documentos | Conteúdo |
+|---------|-----------|----------|
+| **medical_guidelines** | 31 | Guidelines de radiologia (ACR, Fleischner) |
+| **sample_reports** | 50+ | Laudos exemplo (normal e pneumonia) |
+| **medical_terminology** | 200+ | Termos técnicos EN→PT |
+
+### 5.3 Implementação do Retriever
+
+```python
+# src/rag/retriever.py
+
+class MedicalRetriever:
+    """Retriever for medical knowledge to ground LLM generation."""
+
+    def __init__(self, relevance_threshold: float = 1.2):
+        self.vector_store = ChromaVectorStore()
+        self.relevance_threshold = relevance_threshold
+
+    def get_relevant_guidelines(self, diagnosis: str, n_results: int = 3) -> list:
+        """Retrieve relevant radiology guidelines with quality filtering."""
+
+        results = self.vector_store.query(
+            collection_name="medical_guidelines",
+            query_text=diagnosis,
+            n_results=n_results * 2,  # Request extra for filtering
+        )
+
+        # Apply relevance filtering (L2 distance threshold)
+        guidelines = self._filter_by_relevance(results)
+
+        # Deduplicate for diversity
+        guidelines = self._deduplicate_results(guidelines)
+
+        return guidelines[:n_results]
+
+    def build_rag_context(
+        self,
+        diagnosis: str,
+        findings: str | None = None,
+        include_guidelines: bool = True,
+        include_reports: bool = True,
+    ) -> str:
+        """Build RAG context for LLM prompts."""
+
+        context_parts = []
+
+        if include_guidelines:
+            guidelines = self.get_relevant_guidelines(diagnosis)
+            context_parts.append("=== RELEVANT GUIDELINES ===")
+            for g in guidelines:
+                context_parts.append(f"[{g['metadata']['title']}]")
+                context_parts.append(f"- {g['text']}")
+
+        if include_reports and findings:
+            reports = self.get_similar_reports(findings)
+            context_parts.append("\n=== SIMILAR REPORTS ===")
+            for r in reports:
+                context_parts.append(f"- {r['text']}")
+
+        return "\n".join(context_parts)
+```
+
+### 5.4 Filtragem por Relevância
+
+O sistema utiliza **threshold de distância** para garantir qualidade:
+
+```python
+# Relevance thresholds (ChromaDB uses L2 distance - lower is better)
+DEFAULT_RELEVANCE_THRESHOLD = 1.2  # Max distance to consider relevant
+STRICT_RELEVANCE_THRESHOLD = 0.8   # For high-precision queries
+
+def _filter_by_relevance(self, results: list, threshold: float = 1.2) -> list:
+    """Filter results by L2 distance threshold."""
+    return [r for r in results if r.get("distance", 0) <= threshold]
+```
+
+---
+
+## 6. Gerenciamento de Memória
+
+### 6.1 Desafio: M4 Pro 24GB
+
+O ambiente de desenvolvimento possui 24GB de memória unificada (MPS), mas:
+
+- LLaVA-Med @ FP16: ~13GB
+- BioMistral @ FP16: ~13GB
+- MPS single allocation limit: ~10GB
+
+**Solução: Carregamento Sequencial com Split MPS/CPU**
+
+### 6.2 Estratégia de Device Mapping
+
+```python
+# Ambos os modelos usam device_map="auto" com limites:
+max_memory = {"mps": "10GiB", "cpu": "16GiB"}
+
+# HuggingFace Accelerate distribui layers:
+# - Layers 0-20: MPS (GPU)
+# - Layers 21-32: CPU/RAM
+```
+
+### 6.3 Carregamento Sequencial
 
 ```
-The image shows a chest X-ray with an overlay of a heatmap indicating
-areas of interest for pneumonia detection. The highlighted regions reveal
-potential lung abnormalities, which are likely to be infiltrates or opacities,
-suggesting the presence of consolidations or a pattern indicative of pneumonia.
-Based on the AI diagnosis and visual analysis, the model has identified an area
-of concern with a confidence level of 100.0%. This could potentially indicate a
-focal or localized form of pneumonia. However, without additional clinical
-information such as patient history, symptoms, and other diagnostic tests,
-it is not possible to provide a definitive diagnosis or treatment recommendations.
-Further evaluation by a healthcare provider would be necessary for accurate
-diagnosis and appropriate management.
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Memory Timeline                                       │
+└─────────────────────────────────────────────────────────────────────────┘
 
-⚠️ Disclaimer: This AI analysis is for educational purposes only.
-Always consult qualified healthcare professionals for medical decisions.
+Tempo →
+
+│ RAG Retriever │ LLaVA-Med  │     │ BioMistral │     │
+│    (~1GB)     │   (13GB)   │ GC  │   (13GB)   │ GC  │
+└───────────────┴────────────┴─────┴────────────┴─────┘
+                      ↑            ↑             ↑
+                  Stage 1      Unload       Stage 2
+
+Peak Memory: ~13GB (dentro do limite de 24GB)
 ```
 
-**JSON Response da API:**
+### 6.4 Código de Unload
 
-```json
-{
-  "diagnosis_id": 2,
-  "diagnosis": "PNEUMONIA",
-  "confidence": 0.9999438524246216,
-  "clinical_description": "The image shows a chest X-ray with an overlay...",
-  "visualizations": {
-    "heatmap": "data:image/png;base64,iVBORw0KGgo...",
-    "overlay": "data:image/png;base64,iVBORw0KGgo..."
-  }
-}
+```python
+# src/core/medical_pipeline.py
+
+def _unload_llava_med(self) -> None:
+    """Unload LLaVA-Med to free MPS memory before loading BioMistral."""
+    if hasattr(self, "_llava_med_model"):
+        tokenizer, model, image_processor, _ = self._llava_med_model
+
+        # Move to CPU and delete
+        model.cpu()
+        del tokenizer, model, image_processor
+        del self._llava_med_model
+
+        # Clear MPS cache
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+
+        # Force garbage collection
+        import gc
+        gc.collect()
+
+def _unload_model(self, model_name: str) -> None:
+    """Explicitly unload model and free memory."""
+    if model_name == "biomistral":
+        del self._biomistral_model
+        del self._biomistral_tokenizer
+        self._biomistral_model = None
+        self._biomistral_tokenizer = None
+
+    gc.collect()
+    torch.mps.empty_cache()
+```
+
+---
+
+## 7. Prompt Engineering Médico
+
+### 7.1 Prompt do Estágio 1 (Vision)
+
+```python
+# src/prompts/medical_prompts.py
+
+def build_vision_prompt(use_rag: bool = False, rag_context: str = "") -> str:
+    """Build prompt for vision models (LLaVA-Med)."""
+
+    base_prompt = """You are a medical AI assistant analyzing a chest X-ray.
+
+TASK: Describe the radiological findings in this chest X-ray.
+
+INSTRUCTIONS:
+1. Identify anatomical structures (left lung, right lung, heart, diaphragm)
+2. Note ANY opacities, consolidations, or abnormal patterns
+3. If the X-ray is NORMAL, explicitly state "no acute findings"
+4. CRITICAL: Use correct left/right orientation (right side appears left on PA view)
+5. Be specific about location (e.g., "right lower lobe", "left hilum")
+6. Mention presence/absence of: pleural effusion, pneumothorax, cardiomegaly
+"""
+
+    if use_rag and rag_context:
+        base_prompt += f"""
+MEDICAL REFERENCE KNOWLEDGE:
+{rag_context}
+
+Use the above guidelines to inform your analysis, but describe ONLY what you observe.
+"""
+
+    base_prompt += """
+OUTPUT FORMAT:
+- 2-3 concise sentences
+- English only
+- Professional medical terminology
+
+Describe the X-ray findings:"""
+
+    return base_prompt
+```
+
+### 7.2 Prompt do Estágio 2 (Medical)
+
+```python
+def build_medical_text_prompt(
+    vision_description: str,
+    cnn_diagnosis: dict,
+    use_rag: bool = False,
+    rag_context: str = "",
+) -> str:
+    """Build prompt for medical text generation (BioMistral-7B)."""
+
+    diagnosis = cnn_diagnosis.get("prediction", "Unknown")
+    confidence = cnn_diagnosis.get("confidence", 0.0)
+
+    prompt = f"""A vision AI analyzed a chest X-ray and reported: "{vision_description}"
+
+A CNN classifier predicted: {diagnosis} with {confidence:.0%} confidence.
+"""
+
+    if use_rag and rag_context:
+        prompt += f"""
+Relevant medical knowledge:
+{rag_context}
+"""
+
+    prompt += """Write a professional 2-3 sentence radiology report that synthesizes these findings.
+Use standard medical terminology and be specific about:
+- Anatomical locations (e.g., "right lower lobe", "bilateral bases")
+- Pattern of abnormality if present (consolidation, infiltrate, opacity)
+- Clinical assessment or recommendation
+
+If the findings are normal, state "No acute cardiopulmonary abnormality."
+If findings contradict the CNN prediction, note "Clinical correlation recommended."
+
+Radiology Report:"""
+
+    return prompt
+```
+
+### 7.3 Estrutura dos Prompts
+
+| Elemento | Estágio 1 (Vision) | Estágio 2 (Medical) |
+|----------|-------------------|---------------------|
+| **Persona** | "Medical AI assistant" | Implícito (radiologist) |
+| **Task** | Descrever achados | Sintetizar laudo |
+| **Context** | RAG guidelines | Vision output + CNN + RAG |
+| **Format** | 2-3 sentenças, EN | 2-3 sentenças, EN |
+| **Constraints** | Só o que observa | Terminologia padrão |
+
+---
+
+## 8. Pipeline Completo: Código
+
+### 8.1 Classe MedicalPipeline
+
+```python
+# src/core/medical_pipeline.py
+
+class MedicalPipeline:
+    """Complete medical analysis pipeline with RAG grounding."""
+
+    def __init__(
+        self,
+        use_rag: bool = True,
+        vision_model: str = "llava-med",
+        device: str = "mps",
+    ) -> None:
+        self.use_rag = use_rag
+        self.vision_model_name = vision_model
+        self.device = device
+
+        # Lazy-loaded models
+        self._rag_retriever = None
+        self._biomistral_model = None
+        self._biomistral_tokenizer = None
+
+    def analyze_xray(
+        self, image_path: str, cnn_diagnosis: dict | None = None
+    ) -> dict:
+        """Complete end-to-end X-ray analysis.
+
+        Memory Management:
+        - Stage 1: LLaVA-Med (load → generate → unload)
+        - Stage 2: BioMistral (load → generate → unload)
+
+        Peak memory: ~13GB
+        """
+        pipeline_start = time.time()
+
+        if cnn_diagnosis is None:
+            cnn_diagnosis = {"prediction": "UNKNOWN", "confidence": 0.0}
+
+        # Stage 1: Vision analysis with LLaVA-Med
+        vision_result = self.stage1_vision_analysis(image_path, cnn_diagnosis)
+
+        # Stage 2: Medical text with BioMistral
+        medical_result = self.stage2_medical_text(vision_result, cnn_diagnosis)
+
+        # Cleanup
+        self._unload_model("biomistral")
+
+        return {
+            "success": True,
+            "image_path": image_path,
+            "cnn_diagnosis": cnn_diagnosis,
+            "stage1_vision": vision_result,
+            "stage2_medical": medical_result,
+            "final_report_en": medical_result["report_en"],
+            "total_latency_s": time.time() - pipeline_start,
+        }
+```
+
+### 8.2 Integração com API
+
+```python
+# src/api/routes.py
+
+@router.post("/analyze")
+async def analyze_xray(file: UploadFile = File(...)):
+    """Complete X-ray analysis with 2-stage pipeline."""
+
+    # 1. Save uploaded file
+    image_path = save_upload(file)
+
+    # 2. CNN classification
+    cnn_result = get_diagnosis(image_path)
+
+    # 3. Run medical pipeline
+    pipeline = MedicalPipeline(use_rag=True, vision_model="llava-med")
+    analysis = pipeline.analyze_xray(image_path, cnn_result)
+
+    return {
+        "diagnosis": cnn_result["prediction"],
+        "confidence": cnn_result["confidence"],
+        "vision_findings": analysis["stage1_vision"]["findings"],
+        "medical_report": analysis["final_report_en"],
+        "latency_s": analysis["total_latency_s"],
+    }
+```
+
+---
+
+## 9. Resultados e Métricas
+
+### 9.1 Avaliação LLaVA-Med
+
+Avaliação realizada com 5 casos de teste:
+
+| Caso | Ground Truth | CNN | LLaVA-Med | Correto? |
+|------|-------------|-----|-----------|----------|
+| case_01_normal_clear | NORMAL | NORMAL (98.6%) | Normal findings | ✅ |
+| case_02_pneumonia_severe | PNEUMONIA | PNEUMONIA (99.9%) | Consolidations detected | ✅ |
+| case_03_normal_challenging | NORMAL | NORMAL (95.2%) | No acute findings | ✅ |
+| case_04_pneumonia_moderate | PNEUMONIA | PNEUMONIA (96.2%) | Bilateral opacities | ✅ |
+| case_05_false_negative | PNEUMONIA | NORMAL (98.6%) | No acute findings | ❌ |
+
+**Métricas:**
+
+| Métrica | Valor |
+|---------|-------|
+| **Acurácia LLaVA-Med** | 80% (4/5) |
+| **Acurácia CNN** | 80% (4/5) |
+| **Latência Média** | 39.3s |
+| **Latência Vision (Stage 1)** | 35-40s |
+
+### 9.2 Análise de Erros
+
+O caso 5 (falso negativo) demonstra uma limitação importante:
+
+> **Observação:** LLaVA-Med segue a orientação do RAG context, que inclui o diagnóstico da CNN. Quando a CNN erra (falso negativo), o LLaVA-Med tende a concordar.
+
+**Mitigação futura:** Prompt adversarial que instrui "ignore CNN prediction, describe only what you see".
+
+### 9.3 Performance por Estágio
+
+```
+Pipeline Breakdown (caso típico):
+├── RAG Retrieval:    ~0.5s
+├── Stage 1 (Vision): ~38s
+│   └── LLaVA-Med inference
+├── Model Unload:     ~2s
+│   └── GC + MPS cache clear
+├── Stage 2 (Medical): ~8s
+│   └── BioMistral load + generate
+└── Total:            ~48s
 ```
 
 ---
@@ -816,36 +779,38 @@ Always consult qualified healthcare professionals for medical decisions.
 
 ### 10.1 Contribuições Técnicas
 
-1. ✅ **Integração robusta** de CNN + LLM multimodal com fallback
-2. ✅ **Prompt engineering** específico para contexto médico
-3. ✅ **Deployment local** com Ollama (privacidade garantida)
-4. ✅ **Pipeline completo** de explicabilidade (Grad-CAM → LLM → Texto)
+1. ✅ **Pipeline de 2 estágios** com modelos médicos especializados
+2. ✅ **LLaVA-Med** funcionando em Apple Silicon (MPS) com device_map
+3. ✅ **BioMistral-7B** para geração de laudos profissionais
+4. ✅ **Sistema RAG** com 31 guidelines médicas
+5. ✅ **Gerenciamento de memória** para hardware limitado (24GB)
 
 ### 10.2 Limitações
 
-1. ❌ Latência de ~13s (aceitável para diagnóstico, mas não tempo real)
-2. ❌ Dependência de hardware (7B params requer ~16GB RAM)
-3. ❌ Qualidade varia com casos ambíguos (confiança 50-70%)
+1. ❌ Latência de ~40s (aceitável para diagnóstico, não tempo real)
+2. ❌ Dependência do diagnóstico CNN (propagação de erros)
+3. ❌ Limitado a hardware com 24GB+ de memória
 
 ### 10.3 Trabalhos Futuros
 
-1. 🔬 **Fine-tuning** de LLaVA com dataset médico especializado
-2. 🚀 **Quantização** para inferência mais rápida (4-bit)
+1. 🔬 **Prompt adversarial** para reduzir bias do CNN
+2. 🚀 **Quantização 4-bit** para inferência mais rápida
 3. 📊 **Validação clínica** com radiologistas
-4. 🌐 **Multilinguagem** (atualmente apenas inglês)
-5. 🤖 **Detecção de múltiplas patologias** (TB, COVID-19, etc.)
+4. 🤖 **Multi-patologia** (TB, COVID-19, efusão pleural)
+5. 🌐 **Tradução opcional** com modelos menores (NLLB)
 
 ---
 
 ## Referências
 
-1. **LLaVA:** Liu et al. (2023). "Visual Instruction Tuning". NeurIPS 2023.
-2. **CLIP:** Radford et al. (2021). "Learning Transferable Visual Models From Natural Language Supervision". ICML 2021.
-3. **Grad-CAM:** Selvaraju et al. (2017). "Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization". ICCV 2017.
-4. **Ollama:** https://ollama.ai/
+1. **LLaVA-Med:** Li et al. (2023). "LLaVA-Med: Training a Large Language-and-Vision Assistant for Biomedicine in One Day". NeurIPS 2023.
+2. **BioMistral:** Labrak et al. (2024). "BioMistral: A Collection of Open-Source Pretrained Large Language Models for Medical Domains". arXiv:2402.10373.
+3. **Mistral-7B:** Jiang et al. (2023). "Mistral 7B". arXiv:2310.06825.
+4. **RAG:** Lewis et al. (2020). "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks". NeurIPS 2020.
 5. **ChromaDB:** https://www.trychroma.com/
+6. **HuggingFace Accelerate:** https://huggingface.co/docs/accelerate/
 
 ---
 
-**Documento gerado para TCC - PneumoFinder v2.0**  
-**Última atualização:** Dezembro 2025
+**Documento atualizado para TCC - PneumoFinder v3.0**
+**Última atualização:** Fevereiro 2026
