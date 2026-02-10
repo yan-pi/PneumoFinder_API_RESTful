@@ -1,0 +1,6 @@
+{
+  "model": "llava-med",
+  "findings": "The chest X-ray shows bilateral clear lungs, which means that both the left and right lungs appear normal and free of any acute cardiopulmonary abnormalities.",
+  "latency_s": 36.8260772228241,
+  "ground_truth": "NORMAL"
+}

@@ -1,0 +1,6 @@
+{
+  "model": "llava-med",
+  "findings": "The chest X-ray shows bilateral infiltrates, which are abnormal substances or collections of cells that have entered the lung tissue. These infiltrates can be caused by various factors, such as infections, inflammation, or other lung conditions. Further evaluation and clinical correlation are needed to determine the cause and significance of these findings.",
+  "latency_s": 43.38603115081787,
+  "ground_truth": "PNEUMONIA"
+}

@@ -1,0 +1,57 @@
+{
+  "model": "microsoft/llava-med-v1.5-mistral-7b",
+  "device": "mps (Apple Silicon)",
+  "cases": [
+    {
+      "case": "case_01_normal_clear",
+      "cnn_prediction": "NORMAL",
+      "ground_truth": "NORMAL",
+      "cnn_correct": true,
+      "llava_med_correct": true,
+      "latency_s": 34.333755016326904,
+      "findings_key": "normal"
+    },
+    {
+      "case": "case_02_pneumonia_severe",
+      "cnn_prediction": "PNEUMONIA",
+      "ground_truth": "PNEUMONIA",
+      "cnn_correct": true,
+      "llava_med_correct": true,
+      "latency_s": 43.58871006965637,
+      "findings_key": "pathology"
+    },
+    {
+      "case": "case_03_normal_challenging",
+      "cnn_prediction": "NORMAL",
+      "ground_truth": "NORMAL",
+      "cnn_correct": true,
+      "llava_med_correct": true,
+      "latency_s": 36.8260772228241,
+      "findings_key": "normal"
+    },
+    {
+      "case": "case_04_pneumonia_moderate",
+      "cnn_prediction": "PNEUMONIA",
+      "ground_truth": "PNEUMONIA",
+      "cnn_correct": true,
+      "llava_med_correct": true,
+      "latency_s": 43.38603115081787,
+      "findings_key": "pathology"
+    },
+    {
+      "case": "case_05_false_negative",
+      "cnn_prediction": "NORMAL",
+      "ground_truth": "PNEUMONIA",
+      "cnn_correct": false,
+      "llava_med_correct": false,
+      "latency_s": 38.17322897911072,
+      "findings_key": "normal"
+    }
+  ],
+  "metrics": {
+    "cnn_accuracy": 0.8,
+    "llava_med_accuracy": 0.8,
+    "avg_latency_s": 39.26156048774719,
+    "total_cases": 5
+  }
+}

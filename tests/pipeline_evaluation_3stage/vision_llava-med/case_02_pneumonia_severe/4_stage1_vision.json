@@ -1,0 +1,6 @@
+{
+  "model": "llava-med",
+  "findings": "The chest X-ray shows bilateral diffuse infiltrates, which are present in both lungs. These infiltrates may indicate an underlying issue, such as an infection or inflammation. Further evaluation and clinical correlation are needed to determine the cause and significance of these findings.",
+  "latency_s": 43.58871006965637,
+  "ground_truth": "PNEUMONIA"
+}

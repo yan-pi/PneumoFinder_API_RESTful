@@ -1,0 +1,6 @@
+{
+  "model": "llava-med",
+  "findings": "The chest X-ray shows no acute findings. The lungs appear clear bilaterally, which means that there are no visible signs of abnormalities or issues in the left and right lungs.",
+  "latency_s": 38.17322897911072,
+  "ground_truth": "PNEUMONIA"
+}
