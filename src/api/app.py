@@ -49,9 +49,7 @@ print(f"✓ Models loaded. Grad-CAM target: {last_conv_layer.name}")
 
 # Initialize medical pipeline (lazy-loaded models)
 print("Initializing medical pipeline...")
-medical_pipeline = MedicalPipeline(
-    use_rag=True, vision_model="llava-llama3", enable_translation=False
-)
+medical_pipeline = MedicalPipeline(use_rag=True, vision_model="llava-llama3")
 print("✓ Medical pipeline initialized (2-stage: Vision + Medical)")
 
 
@@ -345,7 +343,6 @@ def analyze_xray():
     POST /analyze
     Form data:
         - image (file): X-ray image
-        - translate (optional): "true" to enable Stage 3 PT-BR translation
 
     Returns: {
         "success": true,
@@ -368,10 +365,6 @@ def analyze_xray():
         "total_latency_s": 128.1,
         "timestamp": "2024-01-15 10:30:00"
     }
-
-    With translate=true, also includes:
-        "stage3_translation": {...},
-        "final_report_pt_br": "..."
     """
     if "image" not in request.files:
         return jsonify({"success": False, "error": "No image provided"}), 400
@@ -415,17 +408,8 @@ def analyze_xray():
             metadata={"endpoint": "/analyze", "filename": image_file.filename},
         )
 
-        # Check if translation is requested
-        enable_translation = request.args.get("translate", "false").lower() == "true"
-        if enable_translation:
-            medical_pipeline.enable_translation = True
-            print("[/analyze] Translation enabled (Stage 3 will run)")
-        else:
-            medical_pipeline.enable_translation = False
-            print("[/analyze] Translation disabled (2-stage pipeline)")
-
-        # Run medical pipeline (Stages 1-2, optional 3)
-        print(f"[/analyze] Running medical pipeline...")
+        # Run medical pipeline (Stages 1-2)
+        print("[/analyze] Running 2-stage medical pipeline...")
         result = medical_pipeline.analyze_xray(temp_path, cnn_diagnosis)
 
         if not result["success"]:
@@ -443,7 +427,7 @@ def analyze_xray():
         result["diagnosis_id"] = diagnosis_id
 
         # Save clinical description to database
-        final_report = result.get("final_report_pt_br") or result.get("final_report_en")
+        final_report = result.get("final_report_en")
         if final_report:
             save_clinical_description(diagnosis_id, final_report, diagnosis, confidence)
 
@@ -490,9 +474,8 @@ if __name__ == "__main__":
     ensure_directory(config.temp_dir)
 
     # Run app
-    print(f"\n🚀 Starting PneumoFinder API on port {config.api_port}...")
-    print(f"   - Medical analysis: POST /analyze (2-stage pipeline, ~128s)")
-    print(f"   - With translation: POST /analyze?translate=true (3-stage, ~232s)")
+    print(f"\nStarting PneumoFinder API on port {config.api_port}...")
+    print(f"   - Medical analysis: POST /analyze (2-stage pipeline)")
     print(f"   - Simple diagnosis: POST /diagnose")
     print(f"   - With explanation: POST /diagnose/explained")
     print(f"   - Health check: GET /health")

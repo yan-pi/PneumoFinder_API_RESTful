@@ -63,106 +63,32 @@ def build_medical_text_prompt(
     Returns:
         Formatted prompt for BioMistral
     """
-    prompt = f"""You are a radiologist writing a professional chest X-ray report.
+    # Get diagnosis info
+    diagnosis = cnn_diagnosis.get("prediction", "Unknown")
+    confidence = cnn_diagnosis.get("confidence", 0.0)
 
-INPUT DATA:
-1. Vision Analysis: {vision_description}
-2. CNN Classification: {cnn_diagnosis.get("prediction", "Unknown")} (Confidence: {cnn_diagnosis.get("confidence", 0.0):.1%})
+    # Build conversational prompt that encourages synthesis, not echoing
+    prompt = f"""A vision AI analyzed a chest X-ray and reported: "{vision_description}"
+
+A CNN classifier predicted: {diagnosis} with {confidence:.0%} confidence.
 
 """
 
     if use_rag and rag_context:
-        prompt += f"""
-MEDICAL REFERENCE KNOWLEDGE:
+        prompt += f"""Relevant medical knowledge:
 {rag_context}
 
 """
 
-    prompt += """
-TASK: Generate a concise, professional radiology report in English.
+    prompt += """Write a professional 2-3 sentence radiology report that synthesizes these findings. Use standard medical terminology and be specific about:
+- Anatomical locations (e.g., "right lower lobe", "bilateral bases")
+- Pattern of abnormality if present (consolidation, infiltrate, opacity)
+- Clinical assessment or recommendation
 
-REQUIREMENTS:
-1. Synthesize vision analysis and CNN classification
-2. Use standard radiology terminology
-3. If findings contradict (e.g., CNN says pneumonia but vision sees clear lungs):
-   - Trust the vision analysis for anatomical details
-   - Note the discrepancy: "Clinical correlation recommended"
-4. For NORMAL X-rays:
-   - Use phrases like "no acute cardiopulmonary abnormality"
-   - Explicitly state "lungs are clear bilaterally"
-   - Do NOT fabricate findings
-5. For ABNORMAL X-rays:
-   - Describe pattern (lobar, interstitial, patchy)
-   - Specify location precisely (e.g., "right middle lobe consolidation")
-   - Mention associated findings (effusion, air bronchograms)
+If the findings are normal, state "No acute cardiopulmonary abnormality" or similar.
+If findings contradict the CNN prediction, note "Clinical correlation recommended."
 
-OUTPUT FORMAT:
-- 2-3 sentences maximum
-- English only (translation happens next)
-- Professional, concise, accurate
-
-Generate the radiology report:"""
-
-    return prompt
-
-
-def build_translation_prompt(
-    english_report: str,
-    medical_terms_dict: dict[str, str] | None = None,
-) -> str:
-    """Build prompt for PT-BR translation (Sabiá-7B).
-
-    Args:
-        english_report: English radiology report
-        medical_terms_dict: EN→PT medical terminology for reference
-
-    Returns:
-        Formatted prompt for Sabiá
-    """
-    prompt = f"""Você é um tradutor médico especializado em radiologia.
-
-TAREFA: Traduzir o laudo radiológico abaixo para português brasileiro (PT-BR).
-
-LAUDO EM INGLÊS:
-{english_report}
-
-"""
-
-    if medical_terms_dict:
-        terms_list = "\n".join(
-            [f"- {en} → {pt}" for en, pt in list(medical_terms_dict.items())[:20]]
-        )
-        prompt += f"""
-TERMINOLOGIA MÉDICA DE REFERÊNCIA:
-{terms_list}
-[...]
-
-Use estes termos médicos corretos na tradução.
-
-"""
-
-    prompt += """
-INSTRUÇÕES DE TRADUÇÃO:
-1. Manter terminologia médica profissional em PT-BR
-2. Não adicionar nem remover informações clínicas
-3. Preservar a concisão do original (2-3 frases)
-4. Usar termos padronizados:
-   - "pulmões" (não "os pulmões")
-   - "ausência de" (não "sem")
-   - "campos pulmonares claros" para normal
-   - "consolidação" para consolidation
-   - "derrame pleural" para pleural effusion
-5. CRÍTICO: Respeitar lateralidade:
-   - "right lung" = "pulmão direito"
-   - "left lower lobe" = "lobo inferior esquerdo"
-6. Tradução natural, fluente, como escrita por radiologista brasileiro
-
-FORMATO DE SAÍDA:
-- Apenas o laudo traduzido
-- Sem explicações adicionais
-- 2-3 frases em PT-BR
-
-Tradução:"""
+Radiology Report:"""
 
     return prompt
 
@@ -203,10 +129,6 @@ def build_rag_enhanced_pipeline_prompts(
             cnn_diagnosis=cnn_diagnosis or {},
             use_rag=True,
             rag_context=rag_context,
-        ),
-        "translation_prompt": build_translation_prompt(
-            english_report=vision_description,
-            medical_terms_dict=None,  # Sabiá will use its training
         ),
         "rag_context": rag_context,
     }

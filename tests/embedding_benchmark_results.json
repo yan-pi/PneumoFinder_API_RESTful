@@ -1,0 +1,617 @@
+[
+  {
+    "name": "all-MiniLM-L6-v2",
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "description": "Current model - fast, general purpose (384 dims)",
+    "load_time_s": 3.7920451164245605,
+    "embedding_dim": 384,
+    "queries": [
+      {
+        "query": "pneumonia",
+        "expected": [
+          "Lobar Pneumonia",
+          "Bronchopneumonia",
+          "Interstitial Pneumonia"
+        ],
+        "top3_docs": [
+          "Hospital-acquired pneumonia develops \u226548h after hospital admission. Often multid...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Community-Acquired Pneumonia (CAP) radiographic severity correlates with clinica..."
+        ],
+        "top3_scores": [
+          0.6655,
+          0.6376,
+          0.6204
+        ],
+        "query_time_ms": 1187.86,
+        "hit": true
+      },
+      {
+        "query": "normal chest",
+        "expected": [
+          "Normal Chest X-ray",
+          "Normal Variants"
+        ],
+        "top3_docs": [
+          "Normal chest X-ray: clear bilateral lung fields, sharp costophrenic angles, norm...",
+          "On PA chest X-ray, the RIGHT side appears on the LEFT of the image. Right lung h...",
+          "Common normal variants: azygos fissure (1%), pectus excavatum, scoliosis, promin..."
+        ],
+        "top3_scores": [
+          0.6624,
+          0.4528,
+          0.4399
+        ],
+        "query_time_ms": 96.79,
+        "hit": true
+      },
+      {
+        "query": "bilateral consolidation",
+        "expected": [
+          "Bilateral Pneumonia",
+          "ARDS",
+          "Pulmonary Edema"
+        ],
+        "top3_docs": [
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "ARDS presents with bilateral, diffuse opacities within 7 days of clinical insult..."
+        ],
+        "top3_scores": [
+          0.4313,
+          0.3868,
+          0.2364
+        ],
+        "query_time_ms": 13.13,
+        "hit": true
+      },
+      {
+        "query": "right lower lobe",
+        "expected": [
+          "Lobar Pneumonia",
+          "Aspiration Pneumonia",
+          "Lung Zones"
+        ],
+        "top3_docs": [
+          "On PA chest X-ray, the RIGHT side appears on the LEFT of the image. Right lung h...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom..."
+        ],
+        "top3_scores": [
+          0.6415,
+          0.3937,
+          0.393
+        ],
+        "query_time_ms": 369.14,
+        "hit": true
+      },
+      {
+        "query": "pleural effusion",
+        "expected": [
+          "Pleural Effusion",
+          "Parapneumonic Effusion"
+        ],
+        "top3_docs": [
+          "Pleural effusion presents as blunting of costophrenic angle (requires ~200mL on ...",
+          "Parapneumonic effusion: loculated, >1cm on decubitus, pH <7.2, requires drainage...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ..."
+        ],
+        "top3_scores": [
+          0.744,
+          0.418,
+          0.4157
+        ],
+        "query_time_ms": 351.12,
+        "hit": true
+      },
+      {
+        "query": "air bronchogram",
+        "expected": [
+          "Air Bronchogram Sign",
+          "Lobar Pneumonia"
+        ],
+        "top3_docs": [
+          "Air bronchograms appear as dark, branching air-filled bronchi visible against op...",
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ..."
+        ],
+        "top3_scores": [
+          0.6427,
+          0.524,
+          0.5088
+        ],
+        "query_time_ms": 360.3,
+        "hit": true
+      },
+      {
+        "query": "ground glass opacity",
+        "expected": [
+          "Interstitial Pneumonia",
+          "Viral Pneumonia",
+          "ARDS"
+        ],
+        "top3_docs": [
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie..."
+        ],
+        "top3_scores": [
+          0.3824,
+          0.3499,
+          0.2411
+        ],
+        "query_time_ms": 14.27,
+        "hit": true
+      },
+      {
+        "query": "consolidation with fever",
+        "expected": [
+          "Community-Acquired Pneumonia",
+          "Lobar Pneumonia"
+        ],
+        "top3_docs": [
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom..."
+        ],
+        "top3_scores": [
+          0.3508,
+          0.33,
+          0.3117
+        ],
+        "query_time_ms": 14.69,
+        "hit": true
+      },
+      {
+        "query": "immunocompromised patient lung infection",
+        "expected": [
+          "Hospital-Acquired Pneumonia",
+          "Bronchopneumonia"
+        ],
+        "top3_docs": [
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Community-Acquired Pneumonia (CAP) radiographic severity correlates with clinica..."
+        ],
+        "top3_scores": [
+          0.463,
+          0.4557,
+          0.4525
+        ],
+        "query_time_ms": 255.78,
+        "hit": false
+      },
+      {
+        "query": "aspiration risk patient",
+        "expected": [
+          "Aspiration Pneumonia"
+        ],
+        "top3_docs": [
+          "Aspiration pneumonia typically affects gravity-dependent lung segments: posterio...",
+          "Air bronchograms appear as dark, branching air-filled bronchi visible against op...",
+          "Normal chest X-ray: clear bilateral lung fields, sharp costophrenic angles, norm..."
+        ],
+        "top3_scores": [
+          0.41,
+          0.296,
+          0.2349
+        ],
+        "query_time_ms": 381.16,
+        "hit": true
+      }
+    ],
+    "avg_top1_score": 0.5393,
+    "avg_top3_score": 0.4497,
+    "recall_at_3": 0.9
+  },
+  {
+    "name": "S-PubMedBert-MS-MARCO",
+    "model_id": "pritamdeka/S-PubMedBert-MS-MARCO",
+    "description": "Medical - trained on PubMed (768 dims)",
+    "load_time_s": 19.07364797592163,
+    "embedding_dim": 768,
+    "queries": [
+      {
+        "query": "pneumonia",
+        "expected": [
+          "Lobar Pneumonia",
+          "Bronchopneumonia",
+          "Interstitial Pneumonia"
+        ],
+        "top3_docs": [
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Hospital-acquired pneumonia develops \u226548h after hospital admission. Often multid..."
+        ],
+        "top3_scores": [
+          0.9259,
+          0.9214,
+          0.9131
+        ],
+        "query_time_ms": 658.76,
+        "hit": true
+      },
+      {
+        "query": "normal chest",
+        "expected": [
+          "Normal Chest X-ray",
+          "Normal Variants"
+        ],
+        "top3_docs": [
+          "Normal chest X-ray: clear bilateral lung fields, sharp costophrenic angles, norm...",
+          "On PA chest X-ray, the RIGHT side appears on the LEFT of the image. Right lung h...",
+          "Cardiogenic pulmonary edema: bilateral, symmetric, perihilar (butterfly pattern)..."
+        ],
+        "top3_scores": [
+          0.9377,
+          0.8979,
+          0.8798
+        ],
+        "query_time_ms": 296.09,
+        "hit": true
+      },
+      {
+        "query": "bilateral consolidation",
+        "expected": [
+          "Bilateral Pneumonia",
+          "ARDS",
+          "Pulmonary Edema"
+        ],
+        "top3_docs": [
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie...",
+          "ARDS presents with bilateral, diffuse opacities within 7 days of clinical insult...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ..."
+        ],
+        "top3_scores": [
+          0.9007,
+          0.882,
+          0.8788
+        ],
+        "query_time_ms": 34.95,
+        "hit": true
+      },
+      {
+        "query": "right lower lobe",
+        "expected": [
+          "Lobar Pneumonia",
+          "Aspiration Pneumonia",
+          "Lung Zones"
+        ],
+        "top3_docs": [
+          "On PA chest X-ray, the RIGHT side appears on the LEFT of the image. Right lung h...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Pleural effusion presents as blunting of costophrenic angle (requires ~200mL on ..."
+        ],
+        "top3_scores": [
+          0.9129,
+          0.8793,
+          0.8746
+        ],
+        "query_time_ms": 218.86,
+        "hit": false
+      },
+      {
+        "query": "pleural effusion",
+        "expected": [
+          "Pleural Effusion",
+          "Parapneumonic Effusion"
+        ],
+        "top3_docs": [
+          "Pleural effusion presents as blunting of costophrenic angle (requires ~200mL on ...",
+          "Parapneumonic effusion: loculated, >1cm on decubitus, pH <7.2, requires drainage...",
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie..."
+        ],
+        "top3_scores": [
+          0.8996,
+          0.899,
+          0.8747
+        ],
+        "query_time_ms": 33.34,
+        "hit": true
+      },
+      {
+        "query": "air bronchogram",
+        "expected": [
+          "Air Bronchogram Sign",
+          "Lobar Pneumonia"
+        ],
+        "top3_docs": [
+          "Air bronchograms appear as dark, branching air-filled bronchi visible against op...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie..."
+        ],
+        "top3_scores": [
+          0.9491,
+          0.9024,
+          0.8995
+        ],
+        "query_time_ms": 32.01,
+        "hit": true
+      },
+      {
+        "query": "ground glass opacity",
+        "expected": [
+          "Interstitial Pneumonia",
+          "Viral Pneumonia",
+          "ARDS"
+        ],
+        "top3_docs": [
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie...",
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ..."
+        ],
+        "top3_scores": [
+          0.9087,
+          0.907,
+          0.9025
+        ],
+        "query_time_ms": 216.09,
+        "hit": true
+      },
+      {
+        "query": "consolidation with fever",
+        "expected": [
+          "Community-Acquired Pneumonia",
+          "Lobar Pneumonia"
+        ],
+        "top3_docs": [
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "ARDS presents with bilateral, diffuse opacities within 7 days of clinical insult..."
+        ],
+        "top3_scores": [
+          0.8986,
+          0.8939,
+          0.8802
+        ],
+        "query_time_ms": 31.26,
+        "hit": true
+      },
+      {
+        "query": "immunocompromised patient lung infection",
+        "expected": [
+          "Hospital-Acquired Pneumonia",
+          "Bronchopneumonia"
+        ],
+        "top3_docs": [
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Community-Acquired Pneumonia (CAP) radiographic severity correlates with clinica...",
+          "Hospital-acquired pneumonia develops \u226548h after hospital admission. Often multid..."
+        ],
+        "top3_scores": [
+          0.8832,
+          0.8785,
+          0.8773
+        ],
+        "query_time_ms": 31.64,
+        "hit": true
+      },
+      {
+        "query": "aspiration risk patient",
+        "expected": [
+          "Aspiration Pneumonia"
+        ],
+        "top3_docs": [
+          "Aspiration pneumonia typically affects gravity-dependent lung segments: posterio...",
+          "Hospital-acquired pneumonia develops \u226548h after hospital admission. Often multid...",
+          "Community-Acquired Pneumonia (CAP) radiographic severity correlates with clinica..."
+        ],
+        "top3_scores": [
+          0.8745,
+          0.845,
+          0.8443
+        ],
+        "query_time_ms": 31.64,
+        "hit": true
+      }
+    ],
+    "avg_top1_score": 0.9091,
+    "avg_top3_score": 0.8941,
+    "recall_at_3": 0.9
+  },
+  {
+    "name": "all-mpnet-base-v2",
+    "model_id": "sentence-transformers/all-mpnet-base-v2",
+    "description": "Larger general purpose (768 dims)",
+    "load_time_s": 11.933470964431763,
+    "embedding_dim": 768,
+    "queries": [
+      {
+        "query": "pneumonia",
+        "expected": [
+          "Lobar Pneumonia",
+          "Bronchopneumonia",
+          "Interstitial Pneumonia"
+        ],
+        "top3_docs": [
+          "Hospital-acquired pneumonia develops \u226548h after hospital admission. Often multid...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ..."
+        ],
+        "top3_scores": [
+          0.5789,
+          0.5442,
+          0.5192
+        ],
+        "query_time_ms": 2135.58,
+        "hit": true
+      },
+      {
+        "query": "normal chest",
+        "expected": [
+          "Normal Chest X-ray",
+          "Normal Variants"
+        ],
+        "top3_docs": [
+          "Normal chest X-ray: clear bilateral lung fields, sharp costophrenic angles, norm...",
+          "Common normal variants: azygos fissure (1%), pectus excavatum, scoliosis, promin...",
+          "On PA chest X-ray, the RIGHT side appears on the LEFT of the image. Right lung h..."
+        ],
+        "top3_scores": [
+          0.6345,
+          0.4866,
+          0.3999
+        ],
+        "query_time_ms": 294.68,
+        "hit": true
+      },
+      {
+        "query": "bilateral consolidation",
+        "expected": [
+          "Bilateral Pneumonia",
+          "ARDS",
+          "Pulmonary Edema"
+        ],
+        "top3_docs": [
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "Pleural effusion presents as blunting of costophrenic angle (requires ~200mL on ..."
+        ],
+        "top3_scores": [
+          0.3158,
+          0.2982,
+          0.1988
+        ],
+        "query_time_ms": 33.49,
+        "hit": false
+      },
+      {
+        "query": "right lower lobe",
+        "expected": [
+          "Lobar Pneumonia",
+          "Aspiration Pneumonia",
+          "Lung Zones"
+        ],
+        "top3_docs": [
+          "On PA chest X-ray, the RIGHT side appears on the LEFT of the image. Right lung h...",
+          "Aspiration pneumonia typically affects gravity-dependent lung segments: posterio...",
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ..."
+        ],
+        "top3_scores": [
+          0.6385,
+          0.4125,
+          0.404
+        ],
+        "query_time_ms": 233.01,
+        "hit": true
+      },
+      {
+        "query": "pleural effusion",
+        "expected": [
+          "Pleural Effusion",
+          "Parapneumonic Effusion"
+        ],
+        "top3_docs": [
+          "Pleural effusion presents as blunting of costophrenic angle (requires ~200mL on ...",
+          "Parapneumonic effusion: loculated, >1cm on decubitus, pH <7.2, requires drainage...",
+          "Air bronchograms appear as dark, branching air-filled bronchi visible against op..."
+        ],
+        "top3_scores": [
+          0.8083,
+          0.5372,
+          0.4693
+        ],
+        "query_time_ms": 389.33,
+        "hit": true
+      },
+      {
+        "query": "air bronchogram",
+        "expected": [
+          "Air Bronchogram Sign",
+          "Lobar Pneumonia"
+        ],
+        "top3_docs": [
+          "Air bronchograms appear as dark, branching air-filled bronchi visible against op...",
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie...",
+          "On PA chest X-ray, the RIGHT side appears on the LEFT of the image. Right lung h..."
+        ],
+        "top3_scores": [
+          0.7203,
+          0.5138,
+          0.4527
+        ],
+        "query_time_ms": 400.29,
+        "hit": false
+      },
+      {
+        "query": "ground glass opacity",
+        "expected": [
+          "Interstitial Pneumonia",
+          "Viral Pneumonia",
+          "ARDS"
+        ],
+        "top3_docs": [
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Bronchopneumonia shows multifocal patchy consolidations or ground-glass opacitie..."
+        ],
+        "top3_scores": [
+          0.4237,
+          0.4133,
+          0.3541
+        ],
+        "query_time_ms": 33.02,
+        "hit": true
+      },
+      {
+        "query": "consolidation with fever",
+        "expected": [
+          "Community-Acquired Pneumonia",
+          "Lobar Pneumonia"
+        ],
+        "top3_docs": [
+          "Lobar pneumonia presents as homogeneous consolidation involving an entire lobe, ...",
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ...",
+          "Hospital-acquired pneumonia develops \u226548h after hospital admission. Often multid..."
+        ],
+        "top3_scores": [
+          0.3845,
+          0.3192,
+          0.3166
+        ],
+        "query_time_ms": 34.49,
+        "hit": true
+      },
+      {
+        "query": "immunocompromised patient lung infection",
+        "expected": [
+          "Hospital-Acquired Pneumonia",
+          "Bronchopneumonia"
+        ],
+        "top3_docs": [
+          "Hospital-acquired pneumonia develops \u226548h after hospital admission. Often multid...",
+          "Interstitial pneumonia presents with reticular or ground-glass opacities, predom...",
+          "Viral pneumonia typically shows bilateral, diffuse, ground-glass opacities with ..."
+        ],
+        "top3_scores": [
+          0.5389,
+          0.4862,
+          0.4287
+        ],
+        "query_time_ms": 332.4,
+        "hit": true
+      },
+      {
+        "query": "aspiration risk patient",
+        "expected": [
+          "Aspiration Pneumonia"
+        ],
+        "top3_docs": [
+          "Aspiration pneumonia typically affects gravity-dependent lung segments: posterio...",
+          "Pleural effusion presents as blunting of costophrenic angle (requires ~200mL on ...",
+          "Normal chest X-ray: clear bilateral lung fields, sharp costophrenic angles, norm..."
+        ],
+        "top3_scores": [
+          0.5409,
+          0.4605,
+          0.4156
+        ],
+        "query_time_ms": 237.8,
+        "hit": true
+      }
+    ],
+    "avg_top1_score": 0.5584,
+    "avg_top3_score": 0.4672,
+    "recall_at_3": 0.8
+  }
+]
