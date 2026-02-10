@@ -19,8 +19,9 @@ A aplicação é capaz de:
 ## 📌 Funcionalidades
 
 ### Endpoints Principais de Diagnóstico
-- **`POST /diagnose`** → Diagnóstico de pneumonia com CNN (retorna JSON com diagnosis_id, diagnosis, confidence)  
-- **`POST /diagnose/explained`** → Diagnóstico completo com Grad-CAM + descrição clínica do LLM + visualizações  
+- **`POST /analyze`** → Pipeline completo de 2 estágios (Vision LLM → Medical LLM) com RAG
+- **`POST /diagnose`** → Diagnóstico de pneumonia com CNN (retorna JSON com diagnosis_id, diagnosis, confidence)
+- **`POST /diagnose/explained`** → Diagnóstico completo com Grad-CAM + descrição clínica do LLM + visualizações
 - **`GET /health`** → Health check da API  
 
 ### Endpoints de Banco de Dados
@@ -48,7 +49,10 @@ Os seguintes endpoints em português redirecionam para os endpoints principais:
 - **SQLite** - Banco de dados relacional para armazenamento de diagnósticos  
 - **ChromaDB** - Banco de dados vetorial para busca semântica  
 - **sentence-transformers** - Geração automática de embeddings para similaridade  
-- **Ollama + LLaVA 7B** - Modelo de linguagem multimodal para descrições clínicas  
+- **Ollama + LLaVA** - Modelo de linguagem multimodal (llava-llama3 ou llava:7b)
+- **LLaVA-Med** - Modelo de visão médica (microsoft/llava-med-v1.5-mistral-7b)
+- **BioMistral-7B** - Modelo de texto médico para geração de laudos
+- **RAG (ChromaDB)** - Retrieval-Augmented Generation com guidelines médicas  
 - **OpenCV (cv2)** - Geração de visualizações Grad-CAM (heatmaps e overlays)  
 - **Twilio API** - Integração com WhatsApp  
 - **python-dotenv** - Gerenciamento de variáveis de ambiente  
@@ -229,6 +233,34 @@ mise run install
 
 ## ✅ Exemplos de Uso
 
+### 0. Pipeline Completo de 2 Estágios (cURL)
+
+```bash
+curl -X POST http://localhost:5001/analyze \
+  -F "image=@radiografia_teste.jpg"
+```
+
+Resposta esperada:
+```json
+{
+  "diagnosis_id": 42,
+  "cnn_diagnosis": {
+    "prediction": "PNEUMONIA",
+    "confidence": 0.95
+  },
+  "stage1_vision": {
+    "model": "llava-med",
+    "findings": "The chest X-ray shows bilateral infiltrates...",
+    "latency_s": 38.2
+  },
+  "stage2_medical": {
+    "report": "RADIOLOGY REPORT\n\nClinical History: Suspected pneumonia...",
+    "latency_s": 45.3
+  },
+  "total_latency_s": 84.1
+}
+```
+
 ### 1. Diagnóstico Simples (cURL)
 
 ```bash
@@ -339,24 +371,63 @@ Técnica de **explainability** que gera mapas de calor (heatmaps) mostrando quai
 - **Overlay:** Heatmap sobreposto à radiografia original para contexto anatômico
 - **Armazenamento:** BLOBs binários no banco de dados (não arquivos temporários)
 
-### LLaVA 7B (Large Language and Vision Assistant)
-Modelo multimodal de **7 bilhões de parâmetros** que combina visão computacional com linguagem natural:
-- **Função:** Gera descrições clínicas explicativas em linguagem médica profissional
-- **Arquitetura:** CLIP (visão) + Vicuna 7B (linguagem)
-- **Execução:** Local via Ollama (sem envio de dados para APIs externas)
-- **Entrada:** Radiografia original + predição CNN + visualizações Grad-CAM
-- **Saída:** Narrativa clínica com localização anatômica e interpretação dos achados
+### LLaVA-Med (Medical Vision-Language Model)
+Modelo multimodal especializado em imagens médicas:
+- **Modelo:** `microsoft/llava-med-v1.5-mistral-7b`
+- **Parâmetros:** ~7 bilhões
+- **Arquitetura:** CLIP (visão) + Mistral-7B (linguagem)
+- **Treinamento:** PubMed + datasets médicos
+- **Precisão:** 80% em testes de validação
+- **Latência:** 35-45s por imagem (Apple Silicon)
 
-### Pipeline Multimodal
+### BioMistral-7B (Medical Text Generation)
+Modelo de linguagem especializado em texto biomédico:
+- **Modelo:** `BioMistral/BioMistral-7B`
+- **Função:** Gera laudos radiológicos profissionais
+- **Entrada:** Achados do Stage 1 + RAG context
+- **Saída:** Laudo estruturado em linguagem médica
+
+### Pipeline Multimodal (2 Estágios)
+
+O PneumoFinder utiliza um pipeline de 2 estágios com RAG (Retrieval-Augmented Generation):
+
 ```
 Radiografia → CNN (ResNet50) → Predição (87% PNEUMONIA)
                     ↓
                 Grad-CAM → Heatmap + Overlay
                     ↓
-            LLaVA 7B (via Ollama) → Descrição clínica explicativa
+    ┌─────────────────────────────────────────────────────────┐
+    │ STAGE 1: Vision Analysis                                 │
+    │ ├── Modelo: LLaVA-Med ou llava-llama3                    │
+    │ ├── RAG: Guidelines médicas injetadas no prompt          │
+    │ └── Saída: Achados radiológicos em inglês                │
+    └─────────────────────────────────────────────────────────┘
+                    ↓
+    ┌─────────────────────────────────────────────────────────┐
+    │ STAGE 2: Medical Text Generation                         │
+    │ ├── Modelo: BioMistral-7B                                │
+    │ ├── RAG: Guidelines + Reports similares                  │
+    │ └── Saída: Laudo radiológico profissional                │
+    └─────────────────────────────────────────────────────────┘
                     ↓
         JSON + Armazenamento no Banco (SQLite + ChromaDB)
 ```
+
+### Modelos de Visão Disponíveis
+
+| Modelo | Latência | Memória | Precisão Médica |
+|--------|----------|---------|-----------------|
+| **LLaVA-Med** (microsoft/llava-med-v1.5-mistral-7b) | 35-45s | 14GB | Alta (treinado em PubMed) |
+| **llava-llama3** (via Ollama) | 8-15s | 6GB | Moderada |
+
+### Sistema RAG (Retrieval-Augmented Generation)
+
+O sistema RAG injeta conhecimento médico nos prompts para melhorar a qualidade:
+
+- **31 guidelines** radiológicas (ACR, Fleischner Society, RSNA)
+- **12 reports** de exemplo (inglês e português)
+- **147 termos** médicos com tradução EN→PT
+- **Embeddings**: sentence-transformers (384 dims)
 
 ---
 
