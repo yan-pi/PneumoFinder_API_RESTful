@@ -145,8 +145,12 @@ class MedicalPipeline:
             LLaVA-Med response text
         """
         # Lazy import to avoid loading model on init
+        import os
         import sys
         from pathlib import Path
+
+        # Fix protobuf compatibility issue with transformers >= 4.50
+        os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
         # Add LLaVA-Med to path
         llava_med_path = Path.home() / "www/tcc/LLaVA-Med"
@@ -159,8 +163,9 @@ class MedicalPipeline:
         sys.path.insert(0, str(llava_med_path))
 
         from llava.model.builder import load_pretrained_model
-        from llava.mm_utils import get_model_name_from_path, process_images
+        from llava.mm_utils import get_model_name_from_path, process_images, tokenizer_image_token
         from llava.conversation import conv_templates
+        from llava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN
         from PIL import Image
         import torch
 
@@ -187,16 +192,22 @@ class MedicalPipeline:
         # Load and process image
         image = Image.open(image_path).convert("RGB")
         image_tensor = process_images([image], image_processor, model.config)
-        image_tensor = image_tensor.to(model.device, dtype=torch.float16)
+        # For device_map="auto" with MPS, keep image on CPU (model handles device placement)
+        if isinstance(image_tensor, list):
+            image_tensor = [img.to("cpu", dtype=torch.float16) for img in image_tensor]
+        else:
+            image_tensor = image_tensor.to("cpu", dtype=torch.float16)
 
-        # Prepare conversation
-        conv = conv_templates["llava_v1"].copy()
-        conv.append_message(conv.roles[0], f"<image>\n{prompt}")
+        # Prepare conversation (using vicuna_v1 template for LLaVA-Med-Mistral)
+        conv = conv_templates["vicuna_v1"].copy()
+        conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\n" + prompt)
         conv.append_message(conv.roles[1], None)
         prompt_formatted = conv.get_prompt()
 
-        # Tokenize
-        input_ids = tokenizer([prompt_formatted], return_tensors="pt").input_ids.to(model.device)
+        # Tokenize with image token handling
+        input_ids = tokenizer_image_token(
+            prompt_formatted, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
+        ).unsqueeze(0)
 
         # Generate
         logger.info(f"Running LLaVA-Med inference on {Path(image_path).name}...")
@@ -210,10 +221,15 @@ class MedicalPipeline:
                 temperature=0.2,
             )
 
-        # Decode
-        outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+        # Decode and extract assistant response
+        output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        # Extract just the assistant's response (after "ASSISTANT:")
+        if "ASSISTANT:" in output:
+            output = output.split("ASSISTANT:")[-1].strip()
+        else:
+            output = output.strip()
 
-        return outputs
+        return output
 
     def _unload_llava_med(self) -> None:
         """Unload LLaVA-Med model to free MPS memory before loading BioMistral."""
